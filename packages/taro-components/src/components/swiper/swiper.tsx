@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Component, h, ComponentInterface, Prop, Event, EventEmitter, Watch, Host, Element, State } from '@stencil/core'
 import classNames from 'classnames'
 import type ISwiper from 'swiper'
@@ -21,6 +20,7 @@ export class Swiper implements ComponentInterface {
   @State() swiperWrapper: HTMLElement | null
   @State() private swiper: ISwiper
   @State() isWillLoadCalled = false
+  @State() source = ''
   /**
    * 是否显示面板指示点
    */
@@ -86,6 +86,11 @@ export class Swiper implements ComponentInterface {
    */
   @Prop() full = false
 
+  /**
+   * 给 previewImage API 使用，缩放支持
+   */
+  @Prop() zoom = false
+
   @Event({
     eventName: 'change'
   }) onChange: EventEmitter
@@ -114,18 +119,21 @@ export class Swiper implements ComponentInterface {
   watchAutoplay (newVal) {
     if (!this.isWillLoadCalled || !this.swiper) return
 
-    if (this.swiper.autoplay.running === newVal) return
+    const swiperAutoplay = this.swiper.autoplay
+    if (swiperAutoplay) {
+      if (swiperAutoplay.running === newVal) return
 
-    if (newVal) {
-      if (this.swiper.params && typeof this.swiper.params.autoplay === 'object') {
-        if (this.swiper.params.autoplay.disableOnInteraction === true) {
-          this.swiper.params.autoplay.disableOnInteraction = false
+      if (newVal) {
+        if (this.swiper.params && typeof this.swiper.params.autoplay === 'object') {
+          if (this.swiper.params.autoplay.disableOnInteraction === true) {
+            this.swiper.params.autoplay.disableOnInteraction = false
+          }
+          this.swiper.params.autoplay.delay = this.interval
         }
-        this.swiper.params.autoplay.delay = this.interval
+        swiperAutoplay.start()
+      } else {
+        swiperAutoplay.stop()
       }
-      this.swiper.autoplay.start()
-    } else {
-      this.swiper.autoplay.stop()
     }
   }
 
@@ -160,12 +168,21 @@ export class Swiper implements ComponentInterface {
     this.el.removeChild = <T extends Node>(oldChild: T): T => {
       return newVal.removeChild(oldChild)
     }
-    this.el.addEventListener('DOMNodeInserted', this.handleSwiperSize)
-    this.el.addEventListener('DOMNodeRemoved', this.handleSwiperSize)
+    this.el.addEventListener('DOMNodeInserted', this.handleSwiperSizeDebounce)
+    this.el.addEventListener('DOMNodeRemoved', this.handleSwiperSizeDebounce)
+    this.el.addEventListener('MutationObserver', this.handleSwiperSizeDebounce)
   }
 
   @Watch("circular")
   watchCircular () {
+    if (this.swiper) {
+      this.swiper.destroy()
+      this.handleInit()
+    }
+  }
+
+  @Watch("displayMultipleItems")
+  watchDisplayMultipleItems () {
     if (this.swiper) {
       this.swiper.destroy()
       this.handleInit()
@@ -184,7 +201,7 @@ export class Swiper implements ComponentInterface {
     this.handleInit()
     if (!this.swiper || !this.circular) return
 
-    const wrapper = this.swiper.$wrapperEl[0]
+    const wrapper = this.swiper.$wrapperEl?.[0]
     this.observer = new MutationObserver(this.handleSwiperLoopListen)
 
     this.observer.observe(wrapper, {
@@ -194,8 +211,8 @@ export class Swiper implements ComponentInterface {
 
   componentWillUpdate () {
     if (!this.swiper) return
-    if (this.autoplay && !this.swiper.autoplay.running) {
-      this.swiper.autoplay.start()
+    if (this.autoplay && !this.swiper.autoplay?.running) {
+      this.swiper.autoplay?.start()
     }
     this.swiper.update() // 更新子元素
   }
@@ -205,8 +222,9 @@ export class Swiper implements ComponentInterface {
   }
 
   disconnectedCallback () {
-    this.el.removeEventListener('DOMNodeInserted', this.handleSwiperSize)
-    this.el.removeEventListener('DOMNodeRemoved', this.handleSwiperSize)
+    this.el.removeEventListener('DOMNodeInserted', this.handleSwiperSizeDebounce)
+    this.el.removeEventListener('DOMNodeRemoved', this.handleSwiperSizeDebounce)
+    this.el.removeEventListener('MutationObserver', this.handleSwiperSizeDebounce)
     this.observer?.disconnect?.()
     this.observerFirst?.disconnect?.()
     this.observerLast?.disconnect?.()
@@ -215,9 +233,9 @@ export class Swiper implements ComponentInterface {
   handleSwiperLoopListen = () => {
     this.observerFirst?.disconnect && this.observerFirst.disconnect()
     this.observerLast?.disconnect && this.observerLast.disconnect()
-    this.observerFirst = new MutationObserver(this.handleSwiperLoop)
-    this.observerLast = new MutationObserver(this.handleSwiperLoop)
-    const wrapper = this.swiper.$wrapperEl[0]
+    this.observerFirst = new MutationObserver(this.handleSwiperLoopDebounce)
+    this.observerLast = new MutationObserver(this.handleSwiperLoopDebounce)
+    const wrapper = this.swiper.$wrapperEl?.[0]
     const list = wrapper.querySelectorAll('taro-swiper-item-core:not(.swiper-slide-duplicate)')
     if (list.length >= 1) {
       this.observerFirst.observe(list[0], {
@@ -230,16 +248,22 @@ export class Swiper implements ComponentInterface {
     }
   }
 
-  handleSwiperLoop = debounce(() => {
-    if (this.swiper && this.circular) {
-      // @ts-ignore
-      this.swiper.loopDestroy()
-      // @ts-ignore
-      this.swiper.loopCreate()
+  handleSwiperLoop = () => {
+    if (!this.swiper || !this.circular) return
+    const swiper = this.swiper as any // Note: loop 相关的方法 swiper 未声明
+    const duplicates = this.swiperWrapper?.querySelectorAll('.swiper-slide-duplicate') || []
+    if (duplicates.length < 2) {
+      // Note: 循环模式下，但是前后垫片未注入
+      swiper.loopDestroy?.()
+      swiper.loopCreate?.()
+    } else {
+      swiper.loopFix?.()
     }
-  }, 500)
+  }
 
-  handleSwiperSize = debounce(() => {
+  handleSwiperLoopDebounce = debounce(this.handleSwiperLoop, 50)
+
+  handleSwiperSizeDebounce = debounce(() => {
     if (this.swiper && !this.circular) {
       this.swiper.updateSlides()
     }
@@ -264,28 +288,43 @@ export class Swiper implements ComponentInterface {
       direction: vertical ? 'vertical' : 'horizontal',
       loop: circular,
       slidesPerView: displayMultipleItems,
-      initialSlide: current,
+      initialSlide: circular ? current + 1 : current,
       speed: duration,
       observer: true,
       observeParents: true,
+      zoom: this.zoom,
       on: {
         slideTo () {
           that.current = this.realIndex
         },
-        // slideChange 事件在 swiper.slideTo 改写 current 时不触发，因此用 slideChangeTransitionEnd 事件代替
-        slideChangeTransitionEnd (_swiper: ISwiper) {
-          if (that.circular) {
-            if (_swiper.isBeginning || _swiper.isEnd) {
-              _swiper.slideToLoop(this.realIndex, 0) // 更新下标
+        // Note: slideChange 事件在 swiper.slideTo 改写 current 时不触发，因此用 slideChangeTransitionEnd 事件代替
+        slideChangeTransitionEnd () {
+          /** Note: 此处不能使用 slideChangeTransitionStart 事件
+           * - 因为在它触发时 swiper 各个参数并未准备好，将会导致错误的事件抛出；
+           * - 同时抛出 change 事件会导致 current 监听被打乱 swiper 的生命周期；
+           * - 模式与 slideTo 结合时，会导致动画会被中断、slider 展示不完整或衔接模式错误等问题。
+           */
+          if (circular) {
+            if (this.isBeginning || this.isEnd) {
+              this.slideToLoop(this.realIndex, 0) // 更新下标
               return
             }
           }
           that.onChange.emit({
             current: this.realIndex,
-            source: ''
+            source: that.source
           })
         },
+        touchEnd: () => {
+          that.source = 'touch'
+        },
+        autoplay() {
+          that.source = 'autoplay'
+        },
         transitionEnd () {
+          setTimeout(() => {
+            that.source = ''
+          })
           that.onAnimationFinish.emit({
             current: this.realIndex,
             source: ''

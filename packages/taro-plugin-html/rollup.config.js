@@ -1,20 +1,27 @@
-import typescript from 'rollup-plugin-typescript2'
 import * as path from 'path'
+import { externals } from 'rollup-plugin-node-externals'
+import ts from 'rollup-plugin-ts'
 
 const cwd = __dirname
 
 const base = {
-  external: ['@tarojs/shared', 'path', '@babel/parser', '@babel/traverse', '@babel/types', '@babel/generator'],
-  plugins: [typescript()]
+  plugins: [
+    externals({
+      deps: true,
+      devDeps: false,
+    }),
+    ts(),
+  ]
 }
 
 // 供 CLI 编译时使用的 Taro 插件入口
-const comileConfig = {
+const compileConfig = {
   input: path.join(cwd, 'src/index.ts'),
   output: {
     file: path.join(cwd, 'dist/index.js'),
     format: 'cjs',
     sourcemap: true,
+    interop: 'compat',
     exports: 'named'
   },
   ...base
@@ -31,4 +38,4 @@ const runtimeConfig = {
   ...base
 }
 
-module.exports = [comileConfig, runtimeConfig]
+module.exports = [compileConfig, runtimeConfig]

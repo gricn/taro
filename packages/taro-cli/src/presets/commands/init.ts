@@ -1,4 +1,4 @@
-import { IPluginContext } from '@tarojs/service'
+import type { IPluginContext } from '@tarojs/service'
 
 export default (ctx: IPluginContext) => {
   ctx.registerCommand({
@@ -7,6 +7,7 @@ export default (ctx: IPluginContext) => {
       '--name [name]': '项目名称',
       '--description [description]': '项目介绍',
       '--typescript': '使用TypeScript',
+      '--npm [npm]': '包管理工具',
       '--template-source [templateSource]': '项目模板源',
       '--clone [clone]': '拉取远程模板时使用git clone',
       '--template [template]': '项目模板',
@@ -17,16 +18,19 @@ export default (ctx: IPluginContext) => {
       // init project
       const { appPath } = ctx.paths
       const { options } = opts
-      const { projectName, templateSource, clone, template, description, typescript, css } = options
+      const { projectName, templateSource, clone, template, description, typescript, css, npm, framework, compiler } = options
       const Project = require('../../create/project').default
       const project = new Project({
         projectName,
         projectDir: appPath,
+        npm,
         templateSource,
         clone,
         template,
         description,
         typescript,
+        framework,
+        compiler,
         css
       })
 

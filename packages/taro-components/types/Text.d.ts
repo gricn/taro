@@ -1,31 +1,35 @@
 import { ComponentType } from 'react'
 import { StandardProps } from './common'
-
 interface TextProps extends StandardProps {
   /** 文本是否可选
    * @default false
-   * @supported weapp, swan, alipay, tt, h5, rn
+   * @supported weapp, alipay, swan, tt, qq, jd, h5, rn
    */
   selectable?: boolean
-
   /** 文本是否可选，该属性会使文本节点显示为 inline-block
    * @default false
-   * @supported weapp
+   * @supported weapp, h5
    */
   userSelect?: boolean
-
   /** 显示连续空格
-   * @supported weapp, swan, tt
+   * @supported weapp, alipay, swan, tt, qq, jd, h5
    */
   space?: keyof TextProps.TSpace
-
   /** 是否解码
    * @default false
-   * @supported weapp, tt
+   * @supported weapp, alipay, tt, qq, jd
+   * @h5 默认解码，不支持设置
    */
   decode?: boolean
+  /** 多行省略，值须大于等于 1，表现同 css 的 -webkit-line-clamp 属性一致。
+   * @supported alipay
+   */
+  numberOfLines?: number
+  /** 限制文本最大行数
+   * @supported weapp
+   */
+  maxLines?: number
 }
-
 declare namespace TextProps {
   /** space 的合法值 */
   interface TSpace {
@@ -37,10 +41,9 @@ declare namespace TextProps {
     nbsp
   }
 }
-
 /** 文本
  * @classification base
- * @supported weapp, swan, alipay, tt, h5, rn
+ * @supported weapp, alipay, swan, tt, qq, jd, h5, rn
  * @example_react
  * ```tsx
  * export default class PageView extends Component {
@@ -94,7 +97,7 @@ declare namespace TextProps {
  *     <button class="btn-max-w button_style" :plain="true" type="default" `@tap="add">add line</button>
  *     <button class="btn-max-w button_style" :plain="true" type="default" :disabled="contentsLen ? false : true" `@tap="remove">remove line</button>
  * </template>
- * 
+ *
  * <script>
  * export default {
  *   data() {
@@ -110,7 +113,7 @@ declare namespace TextProps {
  *       this.contents = cot
  *       this.contentsLen = cot.length
  *     },
- * 
+ *
  *     remove () {
  *       const cot = this.contents.slice()
  *       cot.pop()
@@ -124,5 +127,4 @@ declare namespace TextProps {
  * @see https://developers.weixin.qq.com/miniprogram/dev/component/text.html
  */
 declare const Text: ComponentType<TextProps>
-
 export { Text, TextProps }

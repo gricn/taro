@@ -1,6 +1,7 @@
 import { TaroPlatformBase } from '@tarojs/service'
-import { Template } from './template'
+
 import { components } from './components'
+import { Template } from './template'
 
 const PACKAGE_NAME = '@tarojs/plugin-platform-tt'
 
@@ -14,7 +15,8 @@ export default class TT extends TaroPlatformBase {
     templ: '.ttml',
     style: '.ttss',
     config: '.json',
-    script: '.js'
+    script: '.js',
+    xs: '.sjs'
   }
 
   template = new Template()

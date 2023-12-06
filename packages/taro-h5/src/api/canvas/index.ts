@@ -1,9 +1,9 @@
-import { temporarilyNotSupport } from '../utils'
+import { temporarilyNotSupport } from '../../utils'
 
 // 画布
 
 /** 创建离屏 canvas 实例 */
-export const createOffscreenCanvas = temporarilyNotSupport('createOffscreenCanvas')
+export const createOffscreenCanvas = /* @__PURE__ */ temporarilyNotSupport('createOffscreenCanvas')
 
 /** 创建 canvas 的绘图上下文 CanvasContext 对象 */
 export * from './createCanvasContext'

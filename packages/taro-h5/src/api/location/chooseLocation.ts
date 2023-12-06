@@ -1,9 +1,11 @@
+import './style.scss'
+
 import Taro from '@tarojs/api'
 import { stringify } from 'query-string'
 
-import { MethodHandler } from '../utils/handler'
-import './style.css'
+import { MethodHandler } from '../../utils/handler'
 
+let container: HTMLDivElement | null = null
 function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.chooseLocation.Option['mapOpts'] = {}) {
   const { latitude, longitude, ...opts } = mapOpt
   const query = {
@@ -13,7 +15,8 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
     referer: 'myapp',
     ...opts
   }
-  const html = `
+  if (!container) {
+    const html = `
 <div class='taro_choose_location'>
   <div class='taro_choose_location_bar'>
     <div class='taro_choose_location_back'></div>
@@ -23,8 +26,9 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
   <iframe class='taro_choose_location_frame' frameborder='0' src="https://apis.map.qq.com/tools/locpicker?${stringify(query, { arrayFormat: 'comma', skipNull: true })}" />
 </div>
 `
-  const container = document.createElement('div')
-  container.innerHTML = html
+    container = document.createElement('div')
+    container.innerHTML = html
+  }
   const main: HTMLDivElement = container.querySelector('.taro_choose_location') as HTMLDivElement
 
   function show () {
@@ -48,7 +52,8 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
   }
 
   function remove () {
-    container.remove()
+    container?.remove()
+    container = null
     window.removeEventListener('popstate', back)
   }
 
@@ -60,7 +65,7 @@ function createLocationChooser (handler, key = LOCATION_APIKEY, mapOpt: Taro.cho
   return {
     show,
     remove,
-    container
+    container,
   }
 }
 
@@ -76,7 +81,7 @@ export const chooseLocation: typeof Taro.chooseLocation = ({ success, fail, comp
       console.warn('chooseLocation api 依赖腾讯地图定位api，需要在 defineConstants 中配置 LOCATION_APIKEY')
       return handle.fail({
         errMsg: 'LOCATION_APIKEY needed'
-      }, reject)
+      }, { resolve, reject })
     }
 
     const onMessage = event => {
@@ -98,12 +103,12 @@ export const chooseLocation: typeof Taro.chooseLocation = ({ success, fail, comp
         chooser.remove()
       }, 300)
       if (res) {
-        return handle.fail(res, reject)
+        return handle.fail(res, { resolve, reject })
       } else {
         if (chooseLocation.latitude && chooseLocation.longitude) {
-          return handle.success(chooseLocation, resolve)
+          return handle.success(chooseLocation, { resolve, reject })
         } else {
-          return handle.fail({}, reject)
+          return handle.fail({}, { resolve, reject })
         }
       }
     }, key, mapOpts)

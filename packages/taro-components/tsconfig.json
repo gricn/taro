@@ -2,13 +2,27 @@
   "extends": "../../tsconfig.root.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "module": "ESNext",
-    "skipLibCheck": true,
-    "sourceMap": true,
+    "esModuleInterop": true,
     "jsx": "react",
-    "jsxFactory": "h"
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment",
+    "module": "ESNext",
+    "sourceMap": true,
+    "target": "ES2017",
+    "typeRoots": ["./node_modules/@types"]
   },
-  "include": [
-    "./src"
-  ]
+  "include": ["src", "types"],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "UMD",
+      "moduleResolution": "Node",
+      "noEmit": true,
+      "resolveJsonModule": false,
+      "rootDir": ".",
+      "target": "ESNext"
+    },
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "require": ["tsconfig-paths/register"]
+  }
 }

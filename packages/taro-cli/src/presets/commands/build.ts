@@ -1,6 +1,11 @@
-import { IPluginContext } from '@tarojs/service'
+import {
+  MessageKind,
+  validateConfig
+} from '@tarojs/plugin-doctor'
+
 import * as hooks from '../constant'
-import configValidator from '../../doctor/configValidator'
+
+import type { IPluginContext } from '@tarojs/service'
 
 export default (ctx: IPluginContext) => {
   ctx.registerCommand({
@@ -9,6 +14,7 @@ export default (ctx: IPluginContext) => {
       '--type [typeName]': 'Build type, weapp/swan/alipay/tt/qq/jd/h5/rn',
       '--watch': 'Watch mode',
       '--env [env]': 'Value for process.env.NODE_ENV',
+      '--mode [mode]': 'Value of dotenv extname',
       '-p, --port [port]': 'Specified port',
       '--platform': '[rn] Specific React-Native build target: android / ios, android is default value',
       '--reset-cache': '[rn] Clear transform cache',
@@ -20,7 +26,9 @@ export default (ctx: IPluginContext) => {
       '--assets-dest': '[rn] Directory name where to store assets referenced in the bundle',
       '--qr': '[rn] Print qrcode of React-Native bundle server',
       '--blended': 'Blended Taro project in an original MiniApp project',
-      '--plugin [typeName]': 'Build Taro plugin project, weapp'
+      '--new-blended': 'Blended Taro project in an original MiniApp project while supporting building components independently',
+      '--plugin [typeName]': 'Build Taro plugin project, weapp',
+      '--env-prefix [envPrefix]': "Provide the dotEnv varables's prefix",
     },
     synopsisList: [
       'taro build --type weapp',
@@ -28,12 +36,14 @@ export default (ctx: IPluginContext) => {
       'taro build --type weapp --env production',
       'taro build --type weapp --blended',
       'taro build native-components --type weapp',
+      'taro build --type weapp --new-blended',
       'taro build --plugin weapp --watch',
-      'taro build --plugin weapp'
+      'taro build --plugin weapp',
+      'taro build --type weapp --mode prepare --env-prefix TARO_APP_'
     ],
     async fn (opts) {
       const { options, config, _ } = opts
-      const { platform, isWatch, blended } = options
+      const { platform, isWatch, blended, newBlended } = options
       const { fs, chalk, PROJECT_CONFIG } = ctx.helper
       const { outputPath, configPath } = ctx.paths
 
@@ -49,23 +59,36 @@ export default (ctx: IPluginContext) => {
 
       // 校验 Taro 项目配置
       const checkResult = await checkConfig({
-        configPath,
-        projectConfig: ctx.initialConfig
+        projectConfig: ctx.initialConfig,
+        helper: ctx.helper
       })
-      if (checkResult.lines.length) {
-        const NOTE_VALID = chalk.yellow('[!] ')
-        const NOTE_INVALID = chalk.red('[✗] ')
+      if (!checkResult.isValid) {
+        const ERROR = chalk.red('[✗] ')
+        const WARNING = chalk.yellow('[!] ')
+        const SUCCESS = chalk.green('[✓] ')
 
         const lineChalk = chalk.hex('#fff')
         const errorChalk = chalk.hex('#f00')
         console.log(errorChalk(`Taro 配置有误，请检查！ (${configPath})`))
-        checkResult.lines.forEach(line => {
-          console.log(
-            '  ' +
-            (line.valid ? NOTE_VALID : NOTE_INVALID) +
-            lineChalk(line.desc)
-          )
+        checkResult.messages.forEach(message => {
+          switch (message.kind) {
+            case MessageKind.Error:
+              console.log('  ' + ERROR + lineChalk(message.content))
+              break
+            case MessageKind.Success:
+              console.log('  ' + SUCCESS + lineChalk(message.content))
+              break
+            case MessageKind.Warning:
+              console.log('  ' + WARNING + lineChalk(message.content))
+              break
+            case MessageKind.Manual:
+              console.log('  ' + lineChalk(message.content))
+              break
+            default:
+              break
+          }
         })
+        console.log('')
         process.exit(0)
       }
 
@@ -87,6 +110,7 @@ export default (ctx: IPluginContext) => {
             mode: isProduction ? 'production' : 'development',
             blended,
             isBuildNativeComp,
+            newBlended,
             async modifyWebpackChain (chain, webpack, data) {
               await ctx.applyPlugins({
                 name: hooks.MODIFY_WEBPACK_CHAIN,
@@ -126,11 +150,13 @@ export default (ctx: IPluginContext) => {
                 }
               })
             },
-            async onCompilerMake (compilation) {
+            async onCompilerMake (compilation, compiler, plugin) {
               await ctx.applyPlugins({
                 name: hooks.ON_COMPILER_MAKE,
                 opts: {
-                  compilation
+                  compilation,
+                  compiler,
+                  plugin
                 }
               })
             },
@@ -161,10 +187,7 @@ export default (ctx: IPluginContext) => {
   })
 }
 
-async function checkConfig ({ projectConfig, configPath }) {
-  const result = await configValidator({
-    configPath,
-    projectConfig
-  })
+async function checkConfig ({ projectConfig, helper }) {
+  const result = await validateConfig(projectConfig, helper)
   return result
 }

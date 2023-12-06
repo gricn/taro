@@ -1,20 +1,12 @@
 import { Component, Prop, h, ComponentInterface, Host, State, Event, EventEmitter, Element } from '@stencil/core'
 import Taro from '@tarojs/taro'
+import { addLeadingSlash, getCurrentPage, stripBasename, stripSuffix } from '@tarojs/router/dist/utils'
+import { IH5RouterConfig } from '@tarojs/taro/types/compile'
 import classNames from 'classnames'
 import resolvePathname from 'resolve-pathname'
 
 import { splitUrl } from '../../utils'
 import { TabbarItem } from './tabbar-item'
-
-// const removeLeadingSlash = str => str.replace(/^\.?\//, '')
-// const removeTrailingSearch = str => str.replace(/\?[\s\S]*$/, '')
-const addLeadingSlash = str => str[0] === '/' ? str : `/${str}`
-
-const hasBasename = (path, prefix) =>
-  new RegExp('^' + prefix + '(\\/|\\?|#|$)', 'i').test(path)
-
-const stripBasename = (path, prefix) =>
-  hasBasename(path, prefix) ? path.substr(prefix.length) : path
 
 const STATUS_SHOW = 0
 const STATUS_HIDE = 1
@@ -42,7 +34,7 @@ export interface Conf {
   position?: 'bottom' | 'top'
   custom: boolean
   customRoutes: Record<string, string | string[]>
-  mode: 'hash' | 'browser'
+  mode: IH5RouterConfig['mode']
   basename: string
   homePage: string
   currentPagename: string
@@ -90,9 +82,9 @@ export class Tabbar implements ComponentInterface {
 
   @Element() tabbar: HTMLDivElement
 
-  constructor () {
-    const list = this.conf.list
-    const customRoutes = this.conf.customRoutes
+  componentWillLoad () {
+    const list = this.conf?.list || []
+    const customRoutes = this.conf?.customRoutes || {}
     if (
       Object.prototype.toString.call(list) !== '[object Array]' ||
       list.length < 2 ||
@@ -126,20 +118,8 @@ export class Tabbar implements ComponentInterface {
   }
 
   getCurrentUrl () {
-    const routerMode = this.conf.mode
-    const routerBasename = this.conf.basename || '/'
-    let url
-    if (routerMode === 'hash') {
-      const href = window.location.href
-      const hashIndex = href.indexOf('#')
-      url = hashIndex === -1
-        ? ''
-        : href.substring(hashIndex + 1)
-    } else {
-      url = location.pathname
-    }
-    const processedUrl = addLeadingSlash(stripBasename(url, routerBasename))
-    return processedUrl === '/' ? this.homePage : processedUrl
+    const routePath = getCurrentPage(this.conf.mode, this.conf.basename)
+    return decodeURI(routePath === '/' ? this.homePage : routePath)
   }
 
   getOriginUrl = (url: string) => {
@@ -148,7 +128,7 @@ export class Tabbar implements ComponentInterface {
       const pathB = splitUrl(url).path
       return pathA === pathB
     })
-    return customRoute.length ? customRoute[0][0] : url
+    return stripSuffix(customRoute.length ? customRoute[0][0] : url, '.html')
   }
 
   getSelectedIndex = (url: string) => {
@@ -388,6 +368,7 @@ export class Tabbar implements ComponentInterface {
                 isSelected={isSelected}
                 textColor={textColor}
                 iconPath={iconPath}
+                pagePath={item.pagePath}
                 text={item.text}
                 badgeText={item.badgeText}
                 showRedDot={item.showRedDot}

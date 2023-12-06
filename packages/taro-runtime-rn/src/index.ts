@@ -1,44 +1,44 @@
 export {
-  createPageConfig,
-  startPullDownRefresh,
-  stopPullDownRefresh,
-  pageScrollTo,
-  setBackgroundColor,
-  setBackgroundTextStyle,
-  getCurrentPages
-} from './page'
-export {
   createReactNativeApp,
   getApp
 } from './app'
 export {
+  pxTransform
+} from './compute'
+export {
   Current,
   getCurrentInstance
 } from './current'
-export * from './hooks'
 export * from './emmiter'
+export * from './hooks'
 export {
+  createPageConfig,
+  getCurrentPages,
+  pageScrollTo,
+  setBackgroundColor,
+  setBackgroundTextStyle,
+  startPullDownRefresh,
+  stopPullDownRefresh
+} from './page'
+export {
+  hideNavigationBarLoading,
+  hideTabBar,
+  hideTabBarRedDot,
+  navigateBack,
   navigateTo,
   redirectTo,
-  navigateBack,
-  switchTab,
   reLaunch,
-  showTabBar,
-  hideTabBar,
-  showTabBarRedDot,
-  hideTabBarRedDot,
-  setTabBarBadge,
   removeTabBarBadge,
-  setTabBarItem,
-  setNavigationBarTitle,
   setNavigationBarColor,
+  setNavigationBarTitle,
+  setTabBarBadge,
+  setTabBarItem,
+  setTabBarStyle,
   showNavigationBarLoading,
-  hideNavigationBarLoading,
-  setTabBarStyle
-} from '@tarojs/router-rn'
-export {
-  pxTransform
-} from './compute'
+  showTabBar,
+  showTabBarRedDot,
+  switchTab
+} from './router'
 export {
   scalePx2dp,
   scaleVu2dp

@@ -1,15 +1,16 @@
 // RootNavigation.js
-import * as React from 'react'
+import { NavigationContainerRef, StackActions } from '@react-navigation/native'
 import { camelCase } from 'lodash'
-import { StackActions, NavigationContainerRef } from '@react-navigation/native'
-import { getTabBarPages, setTabInitRoute, handleUrl } from './utils/index'
-import { CallbackResult, BaseOption } from './utils/types'
-// import { getOpenerEventChannel } from './getOpenerEventChannel'
+import * as React from 'react'
+
+import { getTabBarPages, handleUrl, setTabInitRoute, updateCurrentJumpUrl, updateJumpAnimate } from './utils/index'
+import { BaseOption, CallbackResult } from './utils/types'
+
 
 type NavigateMethod = 'navigateTo' | 'redirectTo' | 'navigateBack' | 'switchTab' | 'reLaunch'
 
 interface NavigateOption extends BaseOption {
-  url: string,
+  url: string
   events?: Record<string, any>
 }
 
@@ -18,13 +19,11 @@ interface NavigateBackOption extends BaseOption {
 }
 
 interface NavigateRef extends NavigationContainerRef<ReactNavigation.RootParamList> {
-  setOptions: (obj: any) => void;
-  navigateConfig: (obj: any) => void;
+  setOptions: (obj: any) => void
+  navigateConfig: (obj: any) => void
 }
 
 let routeEvtChannel
-
-export const isReadyRef = React.createRef()
 
 export const navigationRef = React.createRef<NavigateRef>()
 
@@ -55,11 +54,14 @@ export function navigate (option: NavigateOption | NavigateBackOption, method: N
   const path = (option as NavigateOption).url
   if (path) {
     routeParam = handleUrl(path)
+    updateCurrentJumpUrl(path)
   }
+  updateJumpAnimate(true)
   try {
     if (method === 'navigateTo') {
       navigationRef.current?.dispatch(StackActions.push(routeParam.pageName, routeParam.params))
     } else if (method === 'redirectTo') {
+      updateJumpAnimate(false)
       navigationRef.current?.dispatch(StackActions.replace(routeParam.pageName, routeParam.params))
     } else if (method === 'switchTab' || (method === 'reLaunch' && isTabPage(path))) {
       const states = navigationRef.current?.getRootState()

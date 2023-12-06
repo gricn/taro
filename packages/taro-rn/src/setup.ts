@@ -25,7 +25,8 @@ jest.doMock('react-native', () => {
   const RNCCameraRoll = (jest.requireActual('./__tests__/__mock__/mockRNCCameraRoll') as any).default
   const MockClipboard = (jest.requireActual('./__tests__/__mock__/mockClipboard') as any).default
   const RNCGeolocation = (jest.requireActual('./__tests__/__mock__/mockRNCGeolocation') as any).default
-  ReactNative.NativeModules.RNCCameraRoll = RNCCameraRoll
+  ReactNative.NativeModules.RNCCameraRoll = RNCCameraRoll.RNCCameraRoll
+  ReactNative.NativeModules.RNCCameraRollPermissionModule = RNCCameraRoll.RNCCameraRollPermissionModule
   ReactNative.NativeModules.RNCClipboard = new MockClipboard()
   ReactNative.NativeModules.RNCGeolocation = RNCGeolocation
   Object.defineProperty(ReactNative.NativeModules, 'ImageLoader', {
@@ -42,9 +43,8 @@ jest.doMock('react-native', () => {
   return ReactNative
 })
 
-jest.doMock('@unimodules/core', () => {
-  const unimodules = jest.requireActual('@unimodules/core') as any
-  const permisson = jest.requireActual('./__tests__/__mock__/mockExpoPermissions')
+jest.doMock('expo-modules-core', () => {
+  const unimodules = jest.requireActual('expo-modules-core') as any
   const { NativeModulesProxy } = unimodules
 
   NativeModulesProxy.ExpoLocation = {
@@ -58,14 +58,27 @@ jest.doMock('@unimodules/core', () => {
       }
     }))
   }
-  NativeModulesProxy.ExpoPermissions = permisson
-
   return unimodules
 })
 
-jest.doMock('react-native-unimodules', () => {
-  const unimodules = jest.requireActual('react-native-unimodules') as any
-  const permisson = jest.requireActual('./__tests__/__mock__/mockExpoPermissions')
-  unimodules.Permissions = permisson
-  return unimodules
+const grantedPromise = jest.fn(() => Promise.resolve({
+  granted: true
+}))
+
+jest.doMock('expo-image-picker', () => {
+  const expoImagePicker = jest.requireActual('expo-image-picker') as any
+  expoImagePicker.requestMediaLibraryPermissionsAsync = grantedPromise
+  return expoImagePicker
+})
+
+jest.doMock('expo-location', () => {
+  const expoLocation = jest.requireActual('expo-location') as any
+  expoLocation.requestForegroundPermissionsAsync = grantedPromise
+  return expoLocation
+})
+
+jest.doMock('expo-barcode-scanner', () => {
+  const expoBarcodeSacnner = jest.requireActual('expo-barcode-scanner') as any
+  expoBarcodeSacnner.requestPermissionsAsync = grantedPromise
+  return expoBarcodeSacnner
 })

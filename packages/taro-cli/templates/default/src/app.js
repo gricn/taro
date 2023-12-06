@@ -1,7 +1,6 @@
 <%if (['react', 'preact'].includes(framework)) {-%>
-import { Component } from 'react'
-<%} else if (framework === 'nerv') { -%>
-import { Component } from 'nervjs'
+<% if (typescript) {%>import { PropsWithChildren } from 'react'<%}%>
+import { useLaunch } from '@tarojs/taro'
 <%} else if (framework === 'vue') { -%>
 import Vue from 'vue'
 <%} else if (framework === 'vue3') { -%>
@@ -9,26 +8,21 @@ import { createApp } from 'vue'
 <%}-%>
 import './app.<%= cssExt %>'
 
-<% if (['react', 'preact', 'nerv'].includes(framework)) { -%>
-class App extends Component {
+<% if (['react', 'preact'].includes(framework)) { -%>
+function App({ children }<% if (typescript) {%>: PropsWithChildren<any><%}%>) {
 
-  componentDidMount () {}
+  useLaunch(() => {
+    console.log('App launched.')
+  })
 
-  componentDidShow () {}
-
-  componentDidHide () {}
-
-  componentDidCatchError () {}
-
-  // this.props.children 是将要会渲染的页面
-  render () {
-    return this.props.children
-  }
+  // children 是将要会渲染的页面
+  return children
 }
 <%}-%>
 <% if (framework === 'vue') { -%>
 const App = {
   onShow (options) {
+    console.log('App onShow.')
   },
   render(h) {
     // this.$slots.default 是将要会渲染的页面
@@ -38,7 +32,9 @@ const App = {
 <%}-%>
 <% if (framework === 'vue3') { -%>
 const App = createApp({
-  onShow (options) {},
+  onShow (options) {
+    console.log('App onShow.')
+  },
   // 入口组件不需要实现 render 方法，即使实现了也会被 taro 所覆盖
 })
 <%}-%>

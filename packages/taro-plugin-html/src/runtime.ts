@@ -1,27 +1,25 @@
-import { Shortcuts, warn } from '@tarojs/shared'
-import { container, SERVICE_IDENTIFIER, TaroElement } from '@tarojs/runtime'
+import { isHasExtractProp, TaroElement } from '@tarojs/runtime'
+import { hooks, Shortcuts, toCamelCase, warn } from '@tarojs/shared'
+
+import { blockElements } from './constant'
 import {
-  isHtmlTags,
-  getMappedType,
-  getAttrMapFn,
+  defineMappedProp,
   ensureHtmlClass,
   ensureRect,
-  mapNameByContion,
-  defineMappedProp
+  getAttrMapFn,
+  getMappedType,
+  isHtmlTags,
+  mapNameByContion
 } from './utils'
 
-import type { IHooks } from '@tarojs/runtime'
-
-const hooks = container.get<IHooks>(SERVICE_IDENTIFIER.Hooks)
-
-hooks.modifyHydrateData = data => {
+hooks.tap('modifyHydrateData', (data, node) => {
   const nodeName = data[Shortcuts.NodeName]
   if (!isHtmlTags(nodeName)) return
 
   process.env.NODE_ENV !== 'production' && warn(data[Shortcuts.NodeName] === 'select', '请使用 Picker 组件代替 <select>')
 
   // map nodeName
-  data[Shortcuts.NodeName] = getMappedType(nodeName, data)
+  data[Shortcuts.NodeName] = getMappedType(nodeName, data, node)
 
   // map attr Key/Value
   const attrMapFn = getAttrMapFn(nodeName)
@@ -47,22 +45,27 @@ hooks.modifyHydrateData = data => {
 
   data[Shortcuts.Class] = ensureHtmlClass(nodeName, data[Shortcuts.Class])
   data[Shortcuts.Style] = ensureRect(data, data[Shortcuts.Style])
-}
+})
 
-hooks.modifySetAttrPayload = (element, key, payload) => {
+hooks.tap('modifySetAttrPayload', (element, key, payload, componentsAlias) => {
   const { nodeName, _path, props } = element
   if (!isHtmlTags(nodeName)) return
 
   // map nodeName
-  mapNameByContion(nodeName, key, element)
+  mapNameByContion(nodeName, key, element, componentsAlias)
+
+  const mapName = getMappedType(nodeName, props)
+  const alias = componentsAlias[mapName]
 
   // map attr Key/Value
   const attrMapFn = getAttrMapFn(nodeName)
   if (attrMapFn) {
     const value = payload.value
     const [mapKey, mapValue] = attrMapFn(key, value, props)
-    payload.path = `${_path}.${mapKey}`
+    payload.path = `${_path}.${alias[mapKey] || mapKey}`
     payload.value = mapValue
+  } else if (alias[key] && alias[key] !== key) {
+    payload.path = `${_path}.${toCamelCase(alias[key])}`
   }
 
   if (key === Shortcuts.Class) {
@@ -71,21 +74,51 @@ hooks.modifySetAttrPayload = (element, key, payload) => {
     payload.path = `${_path}.${Shortcuts.Style}`
     payload.value = ensureRect(props, element.style.cssText)
   }
-}
 
-hooks.modifyRmAttrPayload = (element, key, payload) => {
+  if (blockElements.has(element.nodeName)) {
+    const viewAlias = componentsAlias.view._num
+    const staticViewAlias = componentsAlias['static-view']._num
+    const catchViewAlias = componentsAlias['catch-view']._num
+    const qualifiedNameInCamelCase = toCamelCase(key)
+    const dataPath = `${_path}.${Shortcuts.NodeName}`
+    if (qualifiedNameInCamelCase === 'catchMove') {
+      // catchMove = true: catch-view
+      // catchMove = false: view or static-view
+      element.enqueueUpdate({
+        path: dataPath,
+        value: payload.value ? catchViewAlias : (
+          element.isAnyEventBinded() ? viewAlias : staticViewAlias
+        )
+      })
+    } else if (isHasExtractProp(element) && !element.isAnyEventBinded()) {
+      // pure-view => static-view
+      // static-view => static-view 因为没有办法分辨之前是不是 pure，所以就算之前是 static 也需要 setData
+      element.enqueueUpdate({
+        path: dataPath,
+        value: staticViewAlias
+      })
+    }
+  }
+})
+
+hooks.tap('modifyRmAttrPayload', (element, key, payload, componentsAlias) => {
   const { nodeName, _path, props } = element
   if (!isHtmlTags(nodeName)) return
 
   // map nodeName
-  mapNameByContion(nodeName, key, element)
+  mapNameByContion(nodeName, key, element, componentsAlias)
+
+  const mapName = getMappedType(nodeName, props)
+  const alias = componentsAlias[mapName]
 
   // map attr Key/Value
   const attrMapFn = getAttrMapFn(nodeName)
   if (attrMapFn) {
     const value = payload[key]
     const [mapKey] = attrMapFn(key, value, props)
-    payload.path = `${_path}.${mapKey}`
+    payload.path = `${_path}.${alias[mapKey] || mapKey}`
+  } else if (alias[key] && alias[key] !== key) {
+    payload.path = `${_path}.${toCamelCase(alias[key])}`
   }
 
   if (key === Shortcuts.Class) {
@@ -94,9 +127,31 @@ hooks.modifyRmAttrPayload = (element, key, payload) => {
     payload.path = `${_path}.${Shortcuts.Style}`
     payload.value = ensureRect(props, element.style.cssText)
   }
-}
 
-hooks.onAddEvent = (type, _handler, _options, node) => {
+  if (blockElements.has(element.nodeName)) {
+    const viewAlias = componentsAlias.view._num
+    const staticViewAlias = componentsAlias['static-view']._num
+    const pureViewAlias = componentsAlias['pure-view']._num
+    const qualifiedNameInCamelCase = toCamelCase(key)
+    const dataPath = `${_path}.${Shortcuts.NodeName}`
+    if (qualifiedNameInCamelCase === 'catchMove') {
+      // catch-view => view or static-view or pure-view
+      element.enqueueUpdate({
+        path: dataPath,
+        value: element.isAnyEventBinded() ? viewAlias : (isHasExtractProp(element) ? staticViewAlias : pureViewAlias)
+      })
+    } else if (!isHasExtractProp(element)) {
+      // static-view => pure-view
+      // pure-view => pure-view 因为没有办法分辨之前是不是 pure，所以就算之前是 pure 也需要 setData
+      element.enqueueUpdate({
+        path: dataPath,
+        value: pureViewAlias
+      })
+    }
+  }
+})
+
+hooks.tap('onAddEvent', (type, _handler, _options, node) => {
   node = node as TaroElement
   if (!isHtmlTags(node.nodeName)) return
   if (type === 'click') {
@@ -112,10 +167,9 @@ hooks.onAddEvent = (type, _handler, _options, node) => {
       defineMappedProp(node.__handlers, type, 'confirm')
     }
   }
-}
+})
 
-hooks.modifyTaroEventImpls ||= []
-hooks.modifyTaroEventImpls.push((event, element) => {
+hooks.tap('modifyTaroEvent', (event, element) => {
   const { nodeName, props } = element
   if (nodeName === 'input' && event.type === 'tap') {
     if (props.type === 'checkbox') {
@@ -130,5 +184,30 @@ hooks.modifyTaroEventImpls.push((event, element) => {
         target.checked = props.checked
       }
     }
+  }
+})
+
+hooks.tap('modifyAddEventListener', (element, sideEffect, getComponentsAlias) => {
+  // 如果是从没有事件绑定到有事件绑定，且是 block 元素，则转换为 view
+  if (blockElements.has(element.nodeName) && sideEffect !== false && !element.isAnyEventBinded()) {
+    const componentsAlias = getComponentsAlias()
+    const alias = componentsAlias.view._num
+    element.enqueueUpdate({
+      path: `${element._path}.${Shortcuts.NodeName}`,
+      value: alias
+    })
+  }
+})
+
+hooks.tap('modifyRemoveEventListener', (element, sideEffect, getComponentsAlias) => {
+  // 如果已没有绑定事件，且是 block 元素，则转换为 static-view 或 pure-view
+  if (blockElements.has(element.nodeName) && sideEffect !== false && !element.isAnyEventBinded()) {
+    const componentsAlias = getComponentsAlias()
+    const value = isHasExtractProp(element) ? 'static-view' : 'pure-view'
+    const valueAlias = componentsAlias[value]._num
+    element.enqueueUpdate({
+      path: `${element._path}.${Shortcuts.NodeName}`,
+      value: valueAlias
+    })
   }
 })

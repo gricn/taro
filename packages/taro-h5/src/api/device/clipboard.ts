@@ -6,8 +6,10 @@
  */
 
 import Taro from '@tarojs/api'
-import { setStorage, setStorageSync, getStorageSync } from '../storage/index'
-import { MethodHandler } from '../utils/handler'
+import { isFunction } from '@tarojs/shared'
+
+import { MethodHandler } from '../../utils/handler'
+import { getStorageSync, setStorage, setStorageSync } from '../storage/index'
 
 const CLIPBOARD_STORAGE_NAME = 'taro_clipboard'
 
@@ -32,7 +34,7 @@ export const setClipboardData: typeof Taro.setClipboardData = async ({ data, suc
      * iOS < 10 的系统可能无法使用编程方式访问剪贴板，参考：
      * https://stackoverflow.com/questions/34045777/copy-to-clipboard-using-javascript-in-ios/34046084
      */
-    if (typeof document.execCommand === 'function') {
+    if (isFunction(document.execCommand)) {
       const textarea = document.createElement('textarea')
       textarea.readOnly = true
       textarea.value = data

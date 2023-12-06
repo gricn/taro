@@ -58,6 +58,7 @@ export class PullToRefresh implements ComponentInterface {
 
   private get scrollContainer () {
     return this.el.parentElement ||
+      this.el.closest('.taro_page_stationed') ||
       document.querySelector('.taro_page_stationed') ||
       document.querySelector('.taro_page') ||
       document.querySelector('.taro_router') ||
@@ -67,11 +68,13 @@ export class PullToRefresh implements ComponentInterface {
 
   @Watch('currSt')
   statusChange () {
-    if (this.currSt === 'release') {
-      const pageEl: any = this.el.closest('.taro_page')
-      if (pageEl && pageEl.__page) {
-        pageEl.__page.onPullDownRefresh()
-      }
+    const pageEl: any = this.scrollContainer
+    switch (this.currSt) {
+      case 'release':
+        pageEl?.__page?.onPullDownRefresh?.()
+        break
+      case 'deactivate':
+        pageEl?.__page?.onPullIntercept?.()
     }
   }
 
@@ -127,7 +130,7 @@ export class PullToRefresh implements ComponentInterface {
 
   init = () => {
     const ele = this.scrollContainer
-    const child = this.el.querySelector('rmc-pull-to-refresh-content')
+    const child = this.el.querySelector('.rmc-pull-to-refresh-content')
     this.el.appendChild = child?.appendChild.bind(child)
     this.el.insertBefore = child?.insertBefore.bind(child)
     this.el.replaceChild = child?.replaceChild.bind(child)

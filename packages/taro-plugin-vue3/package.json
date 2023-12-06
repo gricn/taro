@@ -1,6 +1,6 @@
 {
   "name": "@tarojs/plugin-framework-vue3",
-  "version": "3.4.14",
+  "version": "3.6.20",
   "description": "Vue3 框架插件",
   "author": "drchan",
   "homepage": "https://github.com/nervjs/taro",
@@ -18,25 +18,31 @@
     "url": "git+https://github.com/NervJS/taro.git"
   },
   "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w"
+    "build": "rollup -c --bundleConfigAsCjs",
+    "dev": "rollup -c -w --bundleConfigAsCjs"
   },
   "bugs": {
     "url": "https://github.com/NervJS/taro/issues"
   },
   "dependencies": {
-    "@tarojs/helper": "3.4.14",
-    "@tarojs/runner-utils": "3.4.14",
-    "@tarojs/runtime": "3.4.14",
-    "@tarojs/shared": "3.4.14",
-    "webpack": "4.46.0"
-  },
-  "peerDependencies": {
-    "vue": "^3.0.0"
+    "@tarojs/helper": "workspace:*",
+    "@tarojs/runner-utils": "workspace:*",
+    "@tarojs/runtime": "workspace:*",
+    "@tarojs/service": "workspace:*",
+    "@tarojs/shared": "workspace:*",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
-    "@tarojs/service": "3.4.14",
-    "@tarojs/taro": "3.4.14",
+    "@tarojs/taro": "workspace:*",
+    "@vue/compiler-core": "^3.0.0",
+    "@vue/runtime-core": "^3.0.0",
+    "vue": "^3.0.0",
+    "rollup": "^3.8.1",
+    "rollup-plugin-node-externals": "^5.0.0",
+    "rollup-plugin-ts": "^3.0.2",
+    "typescript": "^4.7.4"
+  },
+  "peerDependencies": {
     "vue": "^3.0.0"
   }
 }

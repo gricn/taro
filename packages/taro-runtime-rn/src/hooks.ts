@@ -1,13 +1,14 @@
 import * as React from 'react'
-import { Current } from './current'
-import { PageLifeCycle } from './instance'
-import { PageContext, getPageInstance, injectPageInstance } from './page'
-import { isFunction, isArray } from './utils'
 
-const taroHooks = (lifecycle: keyof PageLifeCycle) => {
+import { Current } from './current'
+import { AppInstance, PageLifeCycle } from './instance'
+import { getPageInstance, injectPageInstance, PageContext } from './page'
+import { HOOKS_APP_ID, isArray, isFunction } from './utils'
+
+const taroHooks = (lifecycle: keyof PageLifeCycle | keyof AppInstance) => {
   // eslint-disable-next-line @typescript-eslint/ban-types
   return (fn: Function) => {
-    const id = React.useContext(PageContext)
+    const id = React.useContext(PageContext) || HOOKS_APP_ID
 
     const fnRef = React.useRef(fn)
     if (fnRef.current !== fn) fnRef.current = fn
@@ -53,6 +54,12 @@ export const useDidShow = taroHooks('componentDidShow')
 
 export const useDidHide = taroHooks('componentDidHide')
 
+export const useLoad = taroHooks('onLoad')
+
+export const useReady = taroHooks('onReady')
+
+export const useUnload = taroHooks('onUnload')
+
 export const usePullDownRefresh = taroHooks('onPullDownRefresh')
 
 export const useReachBottom = taroHooks('onReachBottom')
@@ -62,6 +69,10 @@ export const usePageScroll = taroHooks('onPageScroll')
 export const useResize = taroHooks('onResize')
 
 export const useTabItemTap = taroHooks('onTabItemTap')
+
+export const useLaunch = taroHooks('onLaunch')
+
+export const usePageNotFound= taroHooks('onPageNotFound')
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const useRouter = (dynamic = false) => {

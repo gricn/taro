@@ -1,11 +1,11 @@
+import { chalk, fs } from '@tarojs/helper'
 import * as path from 'path'
-import * as fs from 'fs-extra'
-import { chalk } from '@tarojs/helper'
+
 import { validateProjectName } from './validate'
 
 interface PlaceholderConfig {
   projectName: string
-  templatePath: string,
+  templatePath: string
   projectPath: string
 }
 
@@ -19,7 +19,10 @@ const UNDERSCORED_DOTFILES = [
   'watchmanconfig',
   'editorconfig',
   'bundle',
-  'ruby-version'
+  'ruby-version',
+  'env.dev',
+  'env.test',
+  'env.prod',
 ]
 const DEFAULT_RN_PROJECT_NAME = 'taroDemo'
 

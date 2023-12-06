@@ -1,39 +1,37 @@
-import { isFunction, ensure, isArray } from '@tarojs/shared'
-import {
-  container,
-  SERVICE_IDENTIFIER,
-  Current,
-  injectPageInstance
-} from '@tarojs/runtime'
+import { Current, getPath, injectPageInstance } from '@tarojs/runtime'
+import { ensure, hooks, isArray, isFunction, isWebPlatform } from '@tarojs/shared'
 import { provide } from 'vue'
+
 import { setDefaultDescriptor, setRouterParams } from './utils'
 
+import type { AppInstance, TaroElement } from '@tarojs/runtime'
+import type { AppConfig as Config } from '@tarojs/taro'
 import type {
   App,
   Component,
-  ComponentPublicInstance,
   ComponentOptions,
-  VNode,
-  h as createElement
+  ComponentPublicInstance,
+  h as createElement,
+  VNode
 } from '@vue/runtime-core'
-import type { AppConfig as Config } from '@tarojs/taro'
-import type { IHooks, AppInstance, TaroElement } from '@tarojs/runtime'
 
-function setReconciler () {
-  const hooks = container.get<IHooks>(SERVICE_IDENTIFIER.Hooks)
+const isWeb = isWebPlatform()
 
-  hooks.getLifecycle = function (instance, lifecycle) {
+export function setReconciler () {
+  hooks.tap('getLifecycle', function (instance, lifecycle) {
     return instance.$options[lifecycle]
-  }
+  })
 
-  if (process.env.TARO_ENV === 'h5') {
-    hooks.createPullDownComponent = (component, path, h: typeof createElement) => {
+  if (isWeb) {
+    hooks.tap('createPullDownComponent', (component, path, h: typeof createElement, _, stampId: string) => {
       const inject = {
         props: {
           tid: String
         },
         created () {
-          injectPageInstance(this, path)
+          const pagePath = stampId ? getPath(path, { stamp: stampId }) : path
+
+          injectPageInstance(this, pagePath)
         }
       }
 
@@ -52,11 +50,11 @@ function setReconciler () {
           )
         }
       }
-    }
+    })
 
-    hooks.getDOMNode = (el) => {
+    hooks.tap('getDOMNode', el => {
       return el.$el as any
-    }
+    })
   }
 }
 
@@ -95,8 +93,9 @@ function createVue3Page (h: typeof createElement, id: string) {
         return this.$slots.default()
       }
     }
-    const RootElement = process.env.TARO_ENV === 'h5' ? 'div' : 'root'
+    const RootElement = isWeb ? 'div' : 'root'
     const PageComponent = Object.assign({}, component)
+    const option = PageComponent.props?.option?.default?.() || {}
 
     return h(
       ProviderComponent,
@@ -110,10 +109,10 @@ function createVue3Page (h: typeof createElement, id: string) {
               RootElement,
               {
                 id,
-                class: process.env.TARO_ENV === 'h5' ? 'taro_page' : ''
+                class: isWeb ? 'taro_page' : ''
               },
               [
-                h(PageComponent, { tid: id })
+                h(PageComponent, { tid: id, option })
               ]
             )
           ]
@@ -135,12 +134,11 @@ export function createVue3App (app: App<TaroElement>, h: typeof createElement, c
     return pages.slice()
   }
 
-  if (process.env.TARO_ENV !== 'h5') {
+  if (!isWeb) {
     appInstance = app.mount('#app')
   }
 
-  const hooks = container.get<IHooks>(SERVICE_IDENTIFIER.Hooks)
-  const [ONLAUNCH, ONSHOW, ONHIDE] = hooks.getMiniLifecycleImpl().app
+  const [ONLAUNCH, ONSHOW, ONHIDE] = hooks.call('getMiniLifecycleImpl')!.app
 
   const appConfig: AppInstance = Object.create({
     mount (component: Component, id: string, cb: () => void) {
@@ -167,7 +165,7 @@ export function createVue3App (app: App<TaroElement>, h: typeof createElement, c
     [ONLAUNCH]: setDefaultDescriptor({
       value (options) {
         setRouterParams(options)
-        if (process.env.TARO_ENV === 'h5') {
+        if (isWeb) {
           appInstance = app.mount(`#${config.appId || 'app'}`)
         }
 
@@ -211,6 +209,27 @@ export function createVue3App (app: App<TaroElement>, h: typeof createElement, c
         const onHide = appInstance?.$options?.onHide
         isFunction(onHide) && onHide.call(appInstance, options)
       }
+    }),
+
+    onError: setDefaultDescriptor({
+      value (error) {
+        const onError = appInstance?.$options?.onError
+        isFunction(onError) && onError.call(appInstance, error)
+      }
+    }),
+
+    onUnhandledRejection: setDefaultDescriptor({
+      value (error) {
+        const onUnhandledRejection = appInstance?.$options?.onUnhandledRejection
+        isFunction(onUnhandledRejection) && onUnhandledRejection.call(appInstance, error)
+      }
+    }),
+
+    onPageNotFound: setDefaultDescriptor({
+      value (res) {
+        const onPageNotFound = appInstance?.$options?.onPageNotFound
+        isFunction(onPageNotFound) && onPageNotFound.call(appInstance, res)
+      }
     })
   })
 
@@ -219,6 +238,6 @@ export function createVue3App (app: App<TaroElement>, h: typeof createElement, c
   return appConfig
 }
 
-function isClassComponent (value: unknown) {
+export function isClassComponent (value: unknown) {
   return isFunction(value) && '__vccOpts' in value
 }

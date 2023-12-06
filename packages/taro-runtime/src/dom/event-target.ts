@@ -1,22 +1,14 @@
-import { injectable } from 'inversify'
-import { isArray, isObject, warn } from '@tarojs/shared'
-import { getHooks } from 'src/container/store'
+import { hooks, isArray, isObject, warn } from '@tarojs/shared'
 
-import type { EventHandler, AddEventListenerOptions, IHooks } from '../interface'
+import type { AddEventListenerOptions, EventHandler } from '../interface'
 
-@injectable()
 export class TaroEventTarget {
   public __handlers: Record<string, EventHandler[]> = {}
-  public hooks: IHooks
-
-  public constructor () {
-    this.hooks = getHooks()
-  }
 
   public addEventListener (type: string, handler: EventHandler, options?: boolean | AddEventListenerOptions) {
     type = type.toLowerCase()
 
-    this.hooks.onAddEvent?.(type, handler, options, this)
+    hooks.call('onAddEvent', type, handler, options, this)
 
     if (type === 'regionchange') {
       // map 组件的 regionchange 事件非常特殊，详情：https://github.com/NervJS/taro/issues/5766
@@ -52,7 +44,7 @@ export class TaroEventTarget {
     // 因此每次绑定事件都新建一个函数，如果带来了性能问题，可以把这段逻辑抽取到 PReact 插件中。
     const oldHandler = handler
     handler = function () {
-      oldHandler.apply(this, arguments) // this 指向 Element
+      return oldHandler.apply(this, arguments) // this 指向 Element
     }
     ;(handler as any).oldHandler = oldHandler
 
@@ -66,6 +58,14 @@ export class TaroEventTarget {
 
   public removeEventListener (type: string, handler: EventHandler) {
     type = type.toLowerCase()
+
+    if (type === 'regionchange') {
+      // map 组件的 regionchange 事件非常特殊，详情：https://github.com/NervJS/taro/issues/5766
+      this.removeEventListener('begin', handler)
+      this.removeEventListener('end', handler)
+      return
+    }
+
     if (!handler) {
       return
     }

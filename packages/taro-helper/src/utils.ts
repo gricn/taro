@@ -1,21 +1,22 @@
-import * as fs from 'fs-extra'
-import * as path from 'path'
-import * as os from 'os'
 import * as child_process from 'child_process'
-import * as chalk from 'chalk'
-import { isPlainObject, camelCase, mergeWith, flatMap } from 'lodash'
+import * as fs from 'fs-extra'
+import { camelCase, flatMap, isPlainObject, mergeWith } from 'lodash'
+import * as os from 'os'
+import * as path from 'path'
+
 import {
-  processTypeEnum,
-  processTypeMap,
-  TARO_CONFIG_FLODER,
-  SCRIPT_EXT,
+  CSS_EXT,
+  CSS_IMPORT_REG,
   NODE_MODULES_REG,
   PLATFORMS,
-  CSS_IMPORT_REG,
-  CSS_EXT,
-  REG_SCRIPTS
+  processTypeEnum,
+  processTypeMap,
+  REG_JSON,
+  SCRIPT_EXT,
+  TARO_CONFIG_FOLDER
 } from './constants'
-import createBabelRegister from './babelRegister'
+import { requireWithEsbuild } from './esbuild'
+import { chalk } from './terminal'
 
 const execSync = child_process.execSync
 
@@ -37,11 +38,11 @@ export function isQuickAppPkg (name: string): boolean {
 }
 
 export function isAliasPath (name: string, pathAlias: Record<string, any> = {}): boolean {
-  const prefixs = Object.keys(pathAlias)
-  if (prefixs.length === 0) {
+  const prefixes = Object.keys(pathAlias)
+  if (prefixes.length === 0) {
     return false
   }
-  return prefixs.includes(name) || (new RegExp(`^(${prefixs.join('|')})/`).test(name))
+  return prefixes.includes(name) || (new RegExp(`^(${prefixes.join('|')})/`).test(name))
 }
 
 export function replaceAliasPath (filePath: string, name: string, pathAlias: Record<string, any> = {}) {
@@ -50,11 +51,11 @@ export function replaceAliasPath (filePath: string, name: string, pathAlias: Rec
   // 源代码文件，导致文件被意外修改
   filePath = fs.realpathSync(filePath)
 
-  const prefixs = Object.keys(pathAlias)
-  if (prefixs.includes(name)) {
+  const prefixes = Object.keys(pathAlias)
+  if (prefixes.includes(name)) {
     return promoteRelativePath(path.relative(filePath, fs.realpathSync(resolveScriptPath(pathAlias[name]))))
   }
-  const reg = new RegExp(`^(${prefixs.join('|')})/(.*)`)
+  const reg = new RegExp(`^(${prefixes.join('|')})/(.*)`)
   name = name.replace(reg, function (_m, $1, $2) {
     return promoteRelativePath(path.relative(filePath, path.join(pathAlias[$1], $2)))
   })
@@ -157,7 +158,7 @@ export function getUserHomeDir (): string {
 }
 
 export function getTaroPath (): string {
-  const taroPath = path.join(getUserHomeDir(), TARO_CONFIG_FLODER)
+  const taroPath = path.join(getUserHomeDir(), TARO_CONFIG_FOLDER)
   if (!fs.existsSync(taroPath)) {
     fs.ensureDirSync(taroPath)
   }
@@ -209,6 +210,9 @@ export function isEmptyObject (obj: any): boolean {
 }
 
 export function resolveMainFilePath (p: string, extArrs = SCRIPT_EXT): string {
+  if (p.startsWith('pages/') || p === 'app.config') {
+    return p
+  }
   const realPath = p
   const taroEnv = process.env.TARO_ENV
   for (let i = 0; i < extArrs.length; i++) {
@@ -231,6 +235,11 @@ export function resolveMainFilePath (p: string, extArrs = SCRIPT_EXT): string {
       return `${p}${path.sep}index${item}`
     }
   }
+  // 存在多端页面但是对应的多端页面配置不存在时，使用该页面默认配置
+  if (taroEnv && path.parse(p).base.endsWith(`.${taroEnv}.config`)) {
+    const idx = p.lastIndexOf(`.${taroEnv}.config`)
+    return resolveMainFilePath(p.slice(0, idx) + '.config')
+  }
   return realPath
 }
 
@@ -239,7 +248,7 @@ export function resolveScriptPath (p: string): string {
 }
 
 export function generateEnvList (env: Record<string, any>): Record<string, any> {
-  const res = { }
+  const res = {}
   if (env && !isEmptyObject(env)) {
     for (const key in env) {
       try {
@@ -252,8 +261,47 @@ export function generateEnvList (env: Record<string, any>): Record<string, any> 
   return res
 }
 
+/**
+ * 获取 npm 文件或者依赖的绝对路径
+ *
+ * @param {string} 参数1 - 组件路径
+ * @param {string} 参数2 - 文件扩展名
+ * @returns {string} npm 文件绝对路径
+ */
+export function getNpmPackageAbsolutePath (npmPath: string, defaultFile = 'index'): string | null {
+  try {
+    let packageName = ''
+    let componentRelativePath = ''
+    const packageParts = npmPath.split(path.sep)
+
+    // 获取 npm 包名和指定的包文件路径
+    // taro-loader/path/index => packageName = taro-loader, componentRelativePath = path/index
+    // @tarojs/runtime/path/index => packageName = @tarojs/runtime, componentRelativePath = path/index
+    if (npmPath.startsWith('@')) {
+      packageName = packageParts.slice(0, 2).join(path.sep)
+      componentRelativePath = packageParts.slice(2).join(path.sep)
+    } else {
+      packageName = packageParts[0]
+      componentRelativePath = packageParts.slice(1).join(path.sep)
+    }
+
+    // 没有指定的包文件路径统一使用 defaultFile
+    componentRelativePath ||= defaultFile
+    // require.resolve 解析的路径会包含入口文件路径，通过正则过滤一下
+    const match = require.resolve(packageName).match(new RegExp('.*' + packageName))
+
+    if (!match?.length) return null
+
+    const packagePath = match[0]
+
+    return path.join(packagePath, `./${componentRelativePath}`)
+  } catch (error) {
+    return null
+  }
+}
+
 export function generateConstantsList (constants: Record<string, any>): Record<string, any> {
-  const res = { }
+  const res = {}
   if (constants && !isEmptyObject(constants)) {
     for (const key in constants) {
       if (isPlainObject(constants[key])) {
@@ -282,7 +330,7 @@ export function cssImports (content: string): string[] {
 
 /*eslint-disable*/
 const retries = (process.platform === 'win32') ? 100 : 1
-export function emptyDirectory (dirPath: string, opts: { excludes: string[] } = { excludes: [] }) {
+export function emptyDirectory (dirPath: string, opts: { excludes: Array<string | RegExp> | string | RegExp } = { excludes: [] }) {
   if (fs.existsSync(dirPath)) {
     fs.readdirSync(dirPath).forEach(file => {
       const curPath = path.join(dirPath, file)
@@ -291,7 +339,13 @@ export function emptyDirectory (dirPath: string, opts: { excludes: string[] } = 
         let i = 0 // retry counter
         do {
           try {
-            if (!opts.excludes.length || !opts.excludes.some(item => curPath.indexOf(item) >= 0)) {
+            const excludes = Array.isArray(opts.excludes) ? opts.excludes : [opts.excludes]
+            const canRemove =
+              !excludes.length ||
+              !excludes.some((item) =>
+                typeof item === 'string' ? curPath.indexOf(item) >= 0 : item.test(curPath)
+              )
+            if (canRemove) {
               emptyDirectory(curPath)
               fs.rmdirSync(curPath)
             }
@@ -331,7 +385,7 @@ export function getInstalledNpmPkgVersion (pkgName: string, basedir: string): st
   return fs.readJSONSync(pkgPath).version
 }
 
-export const recursiveMerge = <T = any>(src: Partial<T>, ...args: (Partial<T> | undefined)[]) => {
+export const recursiveMerge = <T = any> (src: Partial<T>, ...args: (Partial<T> | undefined)[]) => {
   return mergeWith(src, ...args, (value, srcValue) => {
     const typeValue = typeof value
     const typeSrcValue = typeof srcValue
@@ -423,7 +477,7 @@ export function unzip (zipPath) {
             fileNameArr.shift()
             const fileName = fileNameArr.join('/')
             const writeStream = fs.createWriteStream(path.join(path.dirname(zipPath), fileName))
-            writeStream.on('close', () => {})
+            writeStream.on('close', () => { })
             readStream
               .pipe(filter)
               .pipe(writeStream)
@@ -434,18 +488,18 @@ export function unzip (zipPath) {
   })
 }
 
-export const getAllFilesInFloder = async (
-  floder: string,
+export const getAllFilesInFolder = async (
+  folder: string,
   filter: string[] = []
 ): Promise<string[]> => {
   let files: string[] = []
-  const list = readDirWithFileTypes(floder)
+  const list = readDirWithFileTypes(folder)
 
   await Promise.all(
     list.map(async item => {
-      const itemPath = path.join(floder, item.name)
+      const itemPath = path.join(folder, item.name)
       if (item.isDirectory) {
-        const _files = await getAllFilesInFloder(itemPath, filter)
+        const _files = await getAllFilesInFolder(itemPath, filter)
         files = [...files, ..._files]
       } else if (item.isFile) {
         if (!filter.find(rule => rule === item.name)) files.push(itemPath)
@@ -462,10 +516,10 @@ export interface FileStat {
   isFile: boolean
 }
 
-export function readDirWithFileTypes (floder: string): FileStat[] {
-  const list = fs.readdirSync(floder)
+export function readDirWithFileTypes (folder: string): FileStat[] {
+  const list = fs.readdirSync(folder)
   const res = list.map(name => {
-    const stat = fs.statSync(path.join(floder, name))
+    const stat = fs.statSync(path.join(folder, name))
     return {
       name,
       isDirectory: stat.isDirectory(),
@@ -489,50 +543,6 @@ export const getModuleDefaultExport = exports => exports.__esModule ? exports.de
 
 export function removeHeadSlash (str: string) {
   return str.replace(/^(\/|\\)/, '')
-}
-
-function analyzeImport (filePath: string): string[] {
-  const parser = require('@babel/parser')
-  const traverse = require('@babel/traverse').default
-  const code = fs.readFileSync(filePath).toString()
-  let importPaths: string[] = []
-  filePath = path.dirname(filePath)
-
-  const ast = parser.parse(code, {
-    sourceType: 'module',
-    plugins: [
-      'typescript',
-      'classProperties',
-      'objectRestSpread',
-      'optionalChaining'
-    ]
-  })
-
-  traverse(ast, {
-    ImportDeclaration ({ node }) {
-      const list: string[] = []
-      const source = node.source.value
-
-      if (path.extname(source)) {
-        const importPath = path.resolve(filePath, source)
-        list.push(importPath)
-      } else {
-        ['.js', '.ts', '.json'].forEach(ext => {
-          const importPath = path.resolve(filePath, source + ext)
-          list.push(importPath)
-        })
-      }
-
-      const dep = list.find(importPath => fs.existsSync(importPath))
-      if (!dep) return
-
-      importPaths.push(dep)
-      if (path.extname(dep) !== '.json') {
-        importPaths = importPaths.concat(analyzeImport(dep))
-      }
-    }
-  })
-  return importPaths
 }
 
 // converts ast nodes to js object
@@ -638,25 +648,50 @@ export function readPageConfig (configPath: string) {
   return result
 }
 
-export function readConfig (configPath: string) {
+interface IReadConfigOptions {
+  defineConstants?: Record<string, any>
+  alias?: Record<string, any>
+}
+
+export function readConfig<T extends IReadConfigOptions> (configPath: string, options: T = {} as T) {
   let result: any = {}
   if (fs.existsSync(configPath)) {
-    const importPaths = REG_SCRIPTS.test(configPath) ? analyzeImport(configPath) : []
+    if (REG_JSON.test(configPath)) {
+      result = fs.readJSONSync(configPath)
+    } else {
+      result = requireWithEsbuild(configPath, {
+        customConfig: {
+          define: options.defineConstants || {},
+          alias: options.alias || {},
+        },
+        customSwcConfig: {
+          jsc: {
+            parser: {
+              syntax: 'typescript',
+              decorators: true
+            },
+            transform: {
+              legacyDecorator: true
+            },
+            experimental: {
+              plugins: [
+                // Note: 更新 SWC 版本可能会使插件将箭头函数等代码错误抖动，导致配置读取错误
+                [path.resolve(__dirname, '../swc/plugin-define-config/target/wasm32-wasi/release/swc_plugin_define_config.wasm'), {}]
+              ]
+            }
+          },
+          module: {
+            type: 'commonjs'
+          }
+        }
+      })
+    }
 
-    createBabelRegister({
-      only: [
-        configPath,
-        filepath => importPaths.includes(filepath)
-      ]
-    })
-
-    importPaths.concat([configPath]).forEach(item => {
-      delete require.cache[item]
-    })
-
-    result = getModuleDefaultExport(require(configPath))
+    result = getModuleDefaultExport(result)
   } else {
     result = readPageConfig(configPath)
   }
   return result
 }
+
+export { fs }

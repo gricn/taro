@@ -17,27 +17,44 @@ export const components = {
     rotate: '0',
     polygons: '[]',
     'include-padding': '',
-    'ground-overlays': '',
+    'ground-overlays': '[]',
     'tile-overlay': '',
     'custom-map-style': '',
+    panels: '[]',
     setting: '{}',
-    optimize: '',
+    optimize: 'false',
+    'show-compass': 'false',
+    'show-scale': 'false',
+    'enable-overlooking': 'false',
+    'enable-zoom': 'true',
+    'enable-scroll': 'true',
+    'enable-rotate': 'false',
+    'enable-traffic': 'false',
+    'enable-poi': 'true',
+    'enable-building': 'true',
+    'enable-satellite': 'false',
     bindRegionChange: '',
-    bindPanelTap: ''
+    bindPanelTap: '',
+    bindInitComplete: ''
   },
   Button: {
     scope: '',
     'public-id': '',
     bindGetAuthorize: '',
-    bindError: ''
+    bindError: '',
+    bindGetUserInfo: '',
+    bindGetPhoneNumber: '',
+    bindFollowLifestyle: ''
   },
   Checkbox: {
     bindChange: ''
   },
   Input: {
+    'always-system': 'false',
     'random-number': 'false',
     controlled: 'false',
-    enableNative: 'false'
+    enableNative: 'true',
+    name: ''
   },
   Slider: {
     'track-size': '4',
@@ -70,6 +87,13 @@ export const components = {
   Image: {
     'default-source': ''
   },
+  Camera: {
+    mode: singleQuote('normal'),
+    'output-dimension': singleQuote('720P'),
+    'frame-size': singleQuote('medium'),
+    bindScanCode: '',
+    bindReady: '',
+  },
   Canvas: {
     type: '',
     width: singleQuote('300px'),
@@ -78,8 +102,10 @@ export const components = {
   },
   Video: {
     'poster-size': singleQuote('contain'),
+    'show-thin-progress-bar': 'false',
     'mobilenet-hint-type': '1',
-    enableNative: 'false',
+    'floating-mode': singleQuote('none'),
+    enableNative: 'true',
     bindLoading: '',
     bindUserAction: '',
     bindStop: '',
@@ -90,9 +116,9 @@ export const components = {
     autoplay: 'false',
     path: '',
     speed: '1.0',
-    repeatCount: '0',
-    autoReverse: 'false',
-    assetsPath: '',
+    'repeat-count': '0',
+    'auto-reverse': 'false',
+    'assets-path': '',
     placeholder: '',
     djangoId: '',
     md5: '',
@@ -134,5 +160,46 @@ export const components = {
     bindStop: '',
     bindError: '',
     bindARFrame: ''
-  }
+  },
+  PageContainer: {
+    show: 'false',
+    duration: '300',
+    'z-index': '100',
+    overlay: 'true',
+    position: singleQuote('bottom'),
+    round: 'false',
+    'close-on-slide-down': 'false',
+    'overlay-style': '',
+    'custom-style': '',
+    bindBeforeEnter: '',
+    bindEnter: '',
+    bindEnterCancelled: '',
+    bindAfterEnter: '',
+    bindBeforeLeave: '',
+    bindLeave: '',
+    bindLeaveCancelled: '',
+    bindAfterLeave: '',
+    bindClickOverlay: '',
+  },
+  ShareElement: {
+    name: '',
+    transform: 'false',
+    duration: '300',
+    'easing-function': singleQuote('ease-out'),
+  },
+  RootPortal: {
+    enable: 'true'
+  },
+  PageMeta: {
+    'background-color': '',
+    'background-color-top': '',
+    'background-color-bottom': '',
+    'root-background-color': '',
+    'scroll-top': "''",
+    'scroll-duration': '300',
+    'page-style': "''",
+    'root-font-size': "''",
+    'page-font-size': "''",
+    bindScroll: '',
+  },
 }

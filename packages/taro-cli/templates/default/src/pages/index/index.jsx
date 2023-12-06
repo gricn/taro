@@ -1,28 +1,16 @@
-<%if (['react', 'preact'].includes(framework)) {-%>
-import { Component } from 'react'
-<%} else if (framework === 'nerv') { -%>
-import Nerv, { Component } from 'nervjs'
-<%}-%>
 import { View, Text } from '@tarojs/components'
+import { useLoad } from '@tarojs/taro'
 import './index.<%= cssExt %>'
 
-export default class <%= _.capitalize(pageName) %> extends Component {
+export default function <%= _.capitalize(pageName) %>() {
 
-  componentWillMount () { }
+  useLoad(() => {
+    console.log('Page loaded.')
+  })
 
-  componentDidMount () { }
-
-  componentWillUnmount () { }
-
-  componentDidShow () { }
-
-  componentDidHide () { }
-
-  render () {
-    return (
-      <View className='<%= pageName %>'>
-        <Text>Hello world!</Text>
-      </View>
-    )
-  }
+  return (
+    <View className='<%= pageName %>'>
+      <Text>Hello world!</Text>
+    </View>
+  )
 }

@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Component, h, ComponentInterface, Prop, Host, Element, Listen, Method } from '@stencil/core'
 import { formatTime } from './utils'
 
@@ -10,7 +9,7 @@ export class VideoControl implements ComponentInterface {
   private progressBallRef: HTMLDivElement
   private visible = false
   private isDraggingProgressBall = false
-  private hideControlsTimer: NodeJS.Timeout
+  private hideControlsTimer: ReturnType<typeof setTimeout>
   private percentage = 0
   private progressDimensions = {
     left: 0,

@@ -1,16 +1,16 @@
 import Taro from '@tarojs/api'
 import { Current } from '@tarojs/runtime'
 
-import { MethodHandler } from '../../utils/handler'
-import { getTimingFunc, easeInOut } from '../../utils'
+import { easeInOut, getTimingFunc } from '../../../utils'
+import { MethodHandler } from '../../../utils/handler'
 
-let timer: NodeJS.Timer
+let timer: ReturnType<typeof setTimeout>
 const FRAME_DURATION = 17
 
 /**
  * 将页面滚动到目标位置
  */
-export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '', duration = 300, success, fail, complete }) => {
+export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '', offsetTop = 0, duration = 300, success, fail, complete }) => {
   let scrollFunc
   const handle = new MethodHandler({ name: 'pageScrollTo', success, fail, complete })
   return new Promise((resolve, reject) => {
@@ -18,9 +18,10 @@ export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '
       if (scrollTop === undefined && !selector) {
         return handle.fail({
           errMsg: 'scrollTop" 或 "selector" 需要其之一'
-        }, reject)
+        }, { resolve, reject })
       }
 
+      const usingWindowScroll = (window as any).__taroAppConfig?.usingWindowScroll
       const id = Current.page?.path?.replace(/([^a-z0-9\u00a0-\uffff_-])/ig, '\\$1')
       const el: HTMLDivElement | null = (id
         ? document.querySelector(`.taro_page#${id}`)
@@ -28,7 +29,7 @@ export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '
       document.querySelector('.taro_router')) as HTMLDivElement
 
       if (!scrollFunc) {
-        if (!el) {
+        if (usingWindowScroll) {
           scrollFunc = pos => {
             if (pos === undefined) {
               return window.pageYOffset
@@ -52,11 +53,11 @@ export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '
       }
       const from = scrollFunc()
       let to: number
-      if (typeof scrollTop === 'number') {
-        to = scrollTop
-      } else {
+      if (selector) {
         const el = document.querySelector(selector) as HTMLElement
-        to = el?.offsetTop || 0
+        to = (el?.offsetTop || 0) + offsetTop
+      } else {
+        to = typeof scrollTop === 'number' ? scrollTop : 0
       }
       const delta = to - from
 
@@ -72,14 +73,14 @@ export const pageScrollTo: typeof Taro.pageScrollTo = ({ scrollTop, selector = '
             scroll(frame + 1)
           }, FRAME_DURATION)
         } else {
-          return handle.success({}, resolve)
+          return handle.success({}, { resolve, reject })
         }
       }
       scroll()
     } catch (e) {
       return handle.fail({
         errMsg: e.message
-      }, reject)
+      }, { resolve, reject })
     }
   })
 }

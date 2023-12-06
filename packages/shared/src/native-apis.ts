@@ -1,5 +1,5 @@
-import { isString, isFunction } from './is'
-import { unsupport, setUniqueKeyToRoute } from './utils'
+import { isFunction, isString } from './is'
+import { nonsupport, setUniqueKeyToRoute } from './utils'
 
 declare const getCurrentPages: () => any
 declare const getApp: () => any
@@ -11,11 +11,30 @@ interface IProcessApisIOptions {
   noPromiseApis?: Set<string>
   needPromiseApis?: Set<string>
   handleSyncApis?: (key: string, global: IObject, args: any[]) => any
-  transformMeta?: (key: string, options: IObject) => { key: string, options: IObject },
+  transformMeta?: (key: string, options: IObject) => { key: string, options: IObject }
   modifyApis?: (apis: Set<string>) => void
   modifyAsyncResult?: (key: string, res) => void
   isOnlyPromisify?: boolean
   [propName: string]: any
+}
+
+export interface IApiDiff {
+  [key: string]: {
+    /** API重命名 */
+    alias?: string
+    options?: {
+      /** API参数键名修改 */
+      change?: {
+        old: string
+        new: string
+      }[]
+      /** API参数值修改 */
+      set?: {
+        key: string
+        value: ((options: Record<string, any>) => unknown) | unknown
+      }[]
+    }
+  }
 }
 
 const needPromiseApis = new Set<string>([
@@ -252,7 +271,7 @@ function processApis (taro, global, config: IProcessApisIOptions = {}) {
           ; (options as Record<string, any>) = transformResult.options
           // 新 key 可能不存在
           if (!global.hasOwnProperty(key)) {
-            return unsupport(key)()
+            return nonsupport(key)()
           }
         }
 
@@ -314,7 +333,7 @@ function processApis (taro, global, config: IProcessApisIOptions = {}) {
 
       // API 不存在
       if (!global.hasOwnProperty(platformKey)) {
-        taro[key] = unsupport(key)
+        taro[key] = nonsupport(key)
         return
       }
       if (isFunction(global[key])) {
@@ -341,14 +360,14 @@ function processApis (taro, global, config: IProcessApisIOptions = {}) {
  */
 function equipCommonApis (taro, global, apis: Record<string, any> = {}) {
   taro.canIUseWebp = getCanIUseWebp(taro)
-  taro.getCurrentPages = getCurrentPages || unsupport('getCurrentPages')
-  taro.getApp = getApp || unsupport('getApp')
+  taro.getCurrentPages = getCurrentPages || nonsupport('getCurrentPages')
+  taro.getApp = getApp || nonsupport('getApp')
   taro.env = global.env || {}
 
   try {
-    taro.requirePlugin = requirePlugin || unsupport('requirePlugin')
+    taro.requirePlugin = requirePlugin || nonsupport('requirePlugin')
   } catch (error) {
-    taro.requirePlugin = unsupport('requirePlugin')
+    taro.requirePlugin = nonsupport('requirePlugin')
   }
 
   // request & interceptors
@@ -361,6 +380,15 @@ function equipCommonApis (taro, global, apis: Record<string, any> = {}) {
   taro.addInterceptor = link.addInterceptor.bind(link)
   taro.cleanInterceptors = link.cleanInterceptors.bind(link)
   taro.miniGlobal = taro.options.miniGlobal = global
+  taro.getAppInfo = function () {
+    return {
+      platform: process.env.TARO_PLATFORM || 'MiniProgram',
+      taroVersion: process.env.TARO_VERSION || 'unknown',
+      designWidth: taro.config.designWidth
+    }
+  }
+  taro.createSelectorQuery = delayRef(taro, global, 'createSelectorQuery', 'exec')
+  taro.createIntersectionObserver = delayRef(taro, global, 'createIntersectionObserver', 'observe')
 }
 
 /**
@@ -376,6 +404,17 @@ function equipTaskMethodsIntoPromise (task, promise) {
       promise[method] = task[method].bind(task)
     }
   })
+}
+
+function delayRef (taro, global, name: string, method: string) {
+  return function (...args) {
+    const res = global[name](...args)
+    const raw = res[method].bind(res)
+    res[method] = function (...methodArgs) {
+      taro.nextTick(() => raw(...methodArgs))
+    }
+    return res
+  }
 }
 
 export {

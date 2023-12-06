@@ -1,22 +1,40 @@
-import * as t from 'babel-types'
-import { parseWXML } from './wxml'
-import { parseScript } from './script'
+import * as t from '@babel/types'
+
 import { errors, resetGlobals, THIRD_PARTY_COMPONENTS } from './global'
+import { parseScript } from './script'
 import { setting } from './utils'
 import { parseVue } from './vue'
+import { parseWXML } from './wxml'
+
+interface IPluginInfo {
+  pluginRoot: string // projectRoot + pluginRoot(project.config.json)
+  pluginName: string
+  pages: Set<string>
+  pagesMap: Map<string, string> // 插件名和路径的映射
+  publicComponents: Set<IComponent>
+  entryFilePath: string
+}
+
+interface IComponent {
+  name: string
+  path: string
+}
 
 interface Option {
-  json?: string,
-  script?: string,
-  wxml?: string,
+  json?: string
+  script?: string
+  scriptPath?: string
+  wxml?: string
   path: string
-  rootPath: string,
+  rootPath: string
   framework: 'react' | 'vue'
   isApp?: boolean
+  logFilePath: string
+  pluginInfo: IPluginInfo
 }
 
 export function parse (option: Option) {
-  resetGlobals()
+  resetGlobals(option.rootPath, option.logFilePath)
   setting.rootPath = option.rootPath
   if (option.json) {
     const config = JSON.parse(option.json)
@@ -34,16 +52,25 @@ export function parse (option: Option) {
     const result = parseVue(option.path, option.wxml || '', option.script)
     return {
       ...result,
-      errors
+      errors,
     }
   }
 
   const { wxml, wxses, imports, refIds } = parseWXML(option.path, option.wxml)
   setting.sourceCode = option.script!
-  const ast = parseScript(option.script, wxml as t.Expression, wxses, refIds, option.isApp)
+  const ast = parseScript(
+    option.script,
+    option.scriptPath,
+    wxml as t.Expression,
+    wxses,
+    refIds,
+    option.isApp,
+    option.pluginInfo
+  )
+
   return {
     ast,
     imports,
-    errors
+    errors,
   }
 }

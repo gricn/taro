@@ -1,7 +1,8 @@
-import * as React from 'react'
 import { camelCase } from 'lodash'
-import { getTabVisible, getTabBarPages } from './utils/index'
+import * as React from 'react'
+
 import { navigationRef } from './rootNavigation'
+import { getTabBarPages, getTabVisible } from './utils/index'
 
 interface PageProps {
   navigation: any
@@ -24,18 +25,20 @@ export class PageProvider extends React.Component<any> {
 
   componentDidMount (): void {
     const { navigation } = this.props
-    this.unSubscribleFocus = this.props.navigation.addListener('focus', () => {
-      if (navigationRef && navigationRef?.current) {
-        navigationRef.current.setOptions = navigation.setOptions
-      }
-      // 若是tabBar页面，确保tabbar内容最新
-      if (this.isTabBarPage()) {
-        const tabBarVisible = getTabVisible()
-        navigation.setOptions({
-          tabBarVisible: tabBarVisible
-        })
-      }
-    })
+    if(navigation){
+      this.unSubscribleFocus = this.props.navigation.addListener('focus', () => {
+        if (navigationRef && navigationRef?.current) {
+          navigationRef.current.setOptions = navigation.setOptions
+        }
+        // 若是tabBar页面，确保tabbar内容最新
+        if (this.isTabBarPage()) {
+          const tabBarVisible = getTabVisible()
+          navigation.setOptions({
+            tabBarVisible: tabBarVisible
+          })
+        }
+      })
+    }
   }
 
   componentWillUnmount (): void {
@@ -77,7 +80,7 @@ export class PageProvider extends React.Component<any> {
         shadowOpacity: 1,
         borderBottomWidth: 0
       }, screenHeaderStyle)
-      const navBarParams = Object.assign(winScreenOptions, {
+      const navBarParams = Object.assign({ ...winScreenOptions }, {
         title: headerTitle,
         headerShown: showHeader,
         headerTintColor: color

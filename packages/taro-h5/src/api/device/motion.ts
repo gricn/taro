@@ -1,7 +1,7 @@
 import Taro from '@tarojs/api'
+import throttle from 'lodash-es/throttle'
 
-import { throttle } from '../utils'
-import { CallbackManager, MethodHandler } from '../utils/handler'
+import { CallbackManager, MethodHandler } from '../../utils/handler'
 
 const callbackManager = new CallbackManager()
 let deviceMotionListener

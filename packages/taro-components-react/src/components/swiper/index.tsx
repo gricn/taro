@@ -1,12 +1,14 @@
+import 'swiper/swiper-bundle.min.css'
 import 'weui'
-import React from 'react'
+import './style/index.css'
+
 import classNames from 'classnames'
+import React from 'react'
 import Swipers from 'swiper/swiper-bundle.esm.js'
 
-import type ISwiper from 'swiper'
+import { debounce } from '../../utils'
 
-import 'swiper/swiper-bundle.min.css'
-import './style/index.css'
+import type ISwiper from 'swiper'
 
 let INSTANCE_ID = 0
 
@@ -104,7 +106,7 @@ class Swiper extends React.Component<SwiperProps, Record<string, unknown>> {
                 current: this.realIndex
               }
             })
-          } catch (err) {}
+          } catch (err) {} // eslint-disable-line no-empty
           that._$current = this.realIndex
           that.handleOnChange(e)
         },
@@ -122,7 +124,7 @@ class Swiper extends React.Component<SwiperProps, Record<string, unknown>> {
             } else if (this.mySwiper.isEnd) {
               this.mySwiper.slideToLoop(0, 0)
             }
-          } catch (err) {}
+          } catch (err) {} // eslint-disable-line no-empty
           that.handleOnAnimationFinish(e)
         },
         observerUpdate (_swiper: ISwiper, e) {
@@ -312,14 +314,3 @@ class Swiper extends React.Component<SwiperProps, Record<string, unknown>> {
 }
 
 export { Swiper, SwiperItem }
-
-function debounce (fn, delay: number) {
-  let timer: NodeJS.Timeout
-
-  return function (...arrs) {
-    clearTimeout(timer)
-    timer = setTimeout(function () {
-      fn(...arrs)
-    }, delay)
-  }
-}

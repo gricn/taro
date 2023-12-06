@@ -1,7 +1,7 @@
 const DEFAULT_EMPTY_ARRAY = '[]'
 const NO_DEFAULT_VALUE = ''
-const DEFAULT_TRUE = 'true'
-const DEFAULT_FALSE = 'false'
+const DEFAULT_TRUE = '!0'
+const DEFAULT_FALSE = '!1'
 
 export const touchEvents = {
   bindTouchStart: NO_DEFAULT_VALUE,
@@ -91,6 +91,7 @@ const Button = {
   'hover-start-time': '20',
   'hover-stay-time': '70',
   name: NO_DEFAULT_VALUE,
+  bindagreeprivacyauthorization: NO_DEFAULT_VALUE,
   ...touchEvents
 }
 
@@ -127,7 +128,7 @@ const Input = {
   focus: DEFAULT_FALSE,
   'confirm-type': singleQuote('done'),
   'confirm-hold': DEFAULT_FALSE,
-  cursor: 'i.value.length',
+  cursor: '-1',
   'selection-start': '-1',
   'selection-end': '-1',
   bindInput: NO_DEFAULT_VALUE,
@@ -438,6 +439,10 @@ const Slot = {
   name: NO_DEFAULT_VALUE
 }
 
+const NativeSlot = {
+  name: NO_DEFAULT_VALUE
+}
+
 export const internalComponents: Record<string, Record<string, string>> = {
   View,
   Icon,
@@ -477,7 +482,8 @@ export const internalComponents: Record<string, Record<string, string>> = {
   Block,
   Map: MapComp,
   Slot,
-  SlotView
+  SlotView,
+  NativeSlot,
 }
 
 export const controlledComponent = new Set([

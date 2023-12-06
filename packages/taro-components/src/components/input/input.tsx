@@ -1,5 +1,6 @@
-import { Component, h, ComponentInterface, Prop, Event, EventEmitter, Element, Watch } from '@stencil/core'
-import { EventHandler, TaroEvent } from '../../../types'
+import { Component, h, ComponentInterface, Prop, Event, EventEmitter, Element, Watch, Method } from '@stencil/core'
+
+import type { EventHandler, TaroEvent } from '../../../types'
 
 function getTrueType (type: string | undefined, confirmType: string, password: boolean) {
   if (confirmType === 'search') type = 'search'
@@ -30,23 +31,36 @@ export class Input implements ComponentInterface {
   private onInputExcuted = false
   private fileListener: EventHandler
 
-  @Prop() value: string
+  @Prop({ mutable: true }) value: string = ''
   @Prop() type: string
   @Prop() password = false
   @Prop() placeholder: string
   @Prop() disabled = false
   @Prop() maxlength = 140
-  @Prop() autoFocus = false
+  @Prop({ attribute: 'focus' }) autoFocus = false
   @Prop() confirmType = 'done'
   @Prop() name: string
   @Prop() nativeProps = {}
 
   @Element() el: HTMLElement
 
+  @Method()
+  async focus() {
+    this.inputRef.focus()
+  }
+
   @Watch('autoFocus')
-  watchFocus (newValue: boolean, oldValue: boolean) {
+  watchAutoFocus (newValue: boolean, oldValue: boolean) {
     if (!oldValue && newValue) {
       this.inputRef?.focus()
+    }
+  }
+
+  @Watch('value')
+  watchValue (newValue: string) {
+    const value = fixControlledValue(newValue)
+    if (this.inputRef.value !== value) {
+      this.inputRef.value = value
     }
   }
 
@@ -87,18 +101,19 @@ export class Input implements ComponentInterface {
     } else {
       this.inputRef?.addEventListener('compositionstart', this.handleComposition)
       this.inputRef?.addEventListener('compositionend', this.handleComposition)
+      this.inputRef?.addEventListener('beforeinput', this.handleBeforeInput)
+      this.inputRef?.addEventListener('textInput', this.handleBeforeInput)
     }
-
-    Object.defineProperty(this.el, 'value', {
-      get: () => this.inputRef?.value,
-      set: value => (this.value = value),
-      configurable: true
-    })
   }
 
   disconnectedCallback () {
     if (this.type === 'file') {
       this.inputRef?.removeEventListener('change', this.fileListener)
+    } else {
+      this.inputRef?.removeEventListener('compositionstart', this.handleComposition)
+      this.inputRef?.removeEventListener('compositionend', this.handleComposition)
+      this.inputRef?.removeEventListener('beforeinput', this.handleBeforeInput)
+      this.inputRef?.removeEventListener('textInput', this.handleBeforeInput)
     }
   }
 
@@ -115,7 +130,7 @@ export class Input implements ComponentInterface {
       const inputType = getTrueType(type, confirmType, password)
       this.onInputExcuted = true
       /* 修复 number 类型 maxlength 无效 */
-      if (inputType === 'number' && value && maxlength <= value.length) {
+      if (inputType === 'number' && value && maxlength > -1 && maxlength <= value.length) {
         value = value.substring(0, maxlength)
         e.target.value = value
       }
@@ -136,10 +151,12 @@ export class Input implements ComponentInterface {
         value,
         cursor: value.length
       })
+      this.onInputExcuted = false
     }
   }
 
   handlePaste = (e: TaroEvent<HTMLInputElement> & ClipboardEvent) => {
+    e.stopPropagation()
     this.isOnPaste = true
     this.onPaste.emit({
       value: e.target.value
@@ -147,6 +164,7 @@ export class Input implements ComponentInterface {
   }
 
   handleFocus = (e: TaroEvent<HTMLInputElement> & FocusEvent) => {
+    e.stopPropagation()
     this.onInputExcuted = false
     this.onFocus.emit({
       value: e.target.value
@@ -154,6 +172,7 @@ export class Input implements ComponentInterface {
   }
 
   handleBlur = (e: TaroEvent<HTMLInputElement> & FocusEvent) => {
+    e.stopPropagation()
     this.onBlur.emit({
       value: e.target.value
     })
@@ -176,10 +195,10 @@ export class Input implements ComponentInterface {
   }
 
   handleKeyDown = (e: TaroEvent<HTMLInputElement> & KeyboardEvent) => {
+    e.stopPropagation()
     const { value } = e.target
     const keyCode = e.keyCode || e.code
     this.onInputExcuted = false
-    e.stopPropagation()
 
     this.onKeyDown.emit({
       value,
@@ -190,7 +209,8 @@ export class Input implements ComponentInterface {
     keyCode === 13 && this.onConfirm.emit({ value })
   }
 
-  handleComposition = (e) => {
+  handleComposition = (e: Event) => {
+    e.stopPropagation()
     if (!(e.target instanceof HTMLInputElement)) return
 
     if (e.type === 'compositionend') {
@@ -202,6 +222,19 @@ export class Input implements ComponentInterface {
       })
     } else {
       this.isOnComposition = true
+    }
+  }
+
+  handleBeforeInput = (e) => {
+    if (!e.data) return
+    const isNumber = e.data && /[0-9]/.test(e.data)
+    if (this.type === 'number' && !isNumber) {
+      e.preventDefault()
+    }
+    if (this.type === 'digit' && !isNumber) {
+      if (e.data !== '.' || (e.data === '.' && e.target.value.indexOf('.') > -1)) {
+        e.preventDefault()
+      }
     }
   }
 
@@ -223,9 +256,9 @@ export class Input implements ComponentInterface {
       <input
         ref={input => {
           this.inputRef = input!
+          if (autoFocus && input) input.focus()
         }}
         class='weui-input'
-        value={fixControlledValue(value)}
         type={getTrueType(type, confirmType, password)}
         placeholder={placeholder}
         autoFocus={autoFocus}
@@ -241,6 +274,7 @@ export class Input implements ComponentInterface {
         onCompositionStart={this.handleComposition}
         onCompositionEnd={this.handleComposition}
         {...nativeProps}
+        value={fixControlledValue(value)}
       />
     )
   }

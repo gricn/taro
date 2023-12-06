@@ -1,12 +1,13 @@
 import Taro from '@tarojs/api'
+import { setTitle } from '@tarojs/router/dist/utils/navigate'
 
-import { MethodHandler } from '../../utils/handler'
-import { getParameterError, shouldBeObject, temporarilyNotSupport } from '../../utils'
+import { getParameterError, shouldBeObject, temporarilyNotSupport } from '../../../utils'
+import { MethodHandler } from '../../../utils/handler'
 
 // 导航栏
-export const showNavigationBarLoading = temporarilyNotSupport('showNavigationBarLoading')
+export const showNavigationBarLoading = /* @__PURE__ */ temporarilyNotSupport('showNavigationBarLoading')
 
-export function setNavigationBarTitle (options) {
+export function setNavigationBarTitle (options?: Taro.setNavigationBarTitle.Option) {
   // options must be an Object
   const isObject = shouldBeObject(options)
   if (!isObject.flag) {
@@ -15,7 +16,7 @@ export function setNavigationBarTitle (options) {
     return Promise.reject(res)
   }
 
-  const { title, success, fail, complete } = options
+  const { title, success, fail, complete } = options as Exclude<typeof options, undefined>
   const handle = new MethodHandler({ name: 'setNavigationBarTitle', success, fail, complete })
 
   if (!title || typeof title !== 'string') {
@@ -28,9 +29,7 @@ export function setNavigationBarTitle (options) {
     })
   }
 
-  if (document.title !== title) {
-    document.title = title
-  }
+  setTitle(title)
 
   return handle.success()
 }
@@ -48,5 +47,5 @@ export const setNavigationBarColor: typeof Taro.setNavigationBarColor = (options
   return handle.success()
 }
 
-export const hideNavigationBarLoading = temporarilyNotSupport('hideNavigationBarLoading')
-export const hideHomeButton = temporarilyNotSupport('hideHomeButton')
+export const hideNavigationBarLoading = /* @__PURE__ */ temporarilyNotSupport('hideNavigationBarLoading')
+export const hideHomeButton = /* @__PURE__ */ temporarilyNotSupport('hideHomeButton')

@@ -1,6 +1,7 @@
 import Taro from '@tarojs/api'
-import { temporarilyNotSupport } from '../utils'
-import { CallbackManager } from '../utils/handler'
+
+import { temporarilyNotSupport } from '../../utils'
+import { CallbackManager } from '../../utils/handler'
 
 const callbackManager = new CallbackManager()
 
@@ -14,7 +15,7 @@ const resizeListener = () => {
 /**
  * 设置窗口大小，该接口仅适用于 PC 平台，使用细则请参见指南
  */
-export const setWindowSize = temporarilyNotSupport('setWindowSize')
+export const setWindowSize = /* @__PURE__ */ temporarilyNotSupport('setWindowSize')
 
 /**
  * 监听窗口尺寸变化事件
@@ -35,3 +36,5 @@ export const offWindowResize: typeof Taro.offWindowResize = callback => {
     window.removeEventListener('resize', resizeListener)
   }
 }
+
+export const checkIsPictureInPictureActive = /* @__PURE__ */ temporarilyNotSupport('checkIsPictureInPictureActive')

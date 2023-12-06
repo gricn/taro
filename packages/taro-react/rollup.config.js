@@ -1,7 +1,7 @@
-import typescript from 'rollup-plugin-typescript2'
+import buble from '@rollup/plugin-buble'
 import * as path from 'path'
+import ts from 'rollup-plugin-ts'
 
-const buble = require('rollup-plugin-buble')
 const cwd = __dirname
 
 const baseConfig = {
@@ -14,15 +14,15 @@ const baseConfig = {
       exports: 'named'
     }
   ],
-  external: ['@tarojs/runtime', 'scheduler', 'react-reconciler', '@tarojs/shared'],
+  external: ['@tarojs/runtime', 'react-reconciler', '@tarojs/shared'],
   plugins: [
-    typescript(),
+    ts(),
     buble()
   ]
 }
 
 const esmConfig = Object.assign({}, baseConfig, {
-  output: Object.assign({}, baseConfig.output, {
+  output: Object.assign({}, baseConfig.output[0], {
     sourcemap: true,
     format: 'es',
     file: path.join(cwd, 'dist/react.esm.js')

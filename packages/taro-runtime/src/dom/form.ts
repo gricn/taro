@@ -1,13 +1,21 @@
-import { TaroElement } from './element'
 import {
-  VALUE,
+  CHANGE,
   INPUT,
-  CHANGE
-} from '../constants'
+  TYPE,
+  VALUE } from '../constants'
+import { TaroElement } from './element'
 
 import type { TaroEvent } from './event'
 
 export class FormElement extends TaroElement {
+  public get type () {
+    return this.props[TYPE] ?? ''
+  }
+
+  public set type (val: string) {
+    this.setAttribute(TYPE, val)
+  }
+
   public get value () {
     // eslint-disable-next-line dot-notation
     const val = this.props[VALUE]

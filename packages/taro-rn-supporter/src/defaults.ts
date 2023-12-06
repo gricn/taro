@@ -33,3 +33,5 @@ export const assetExts = [
   // Archives (virtual files)
   'zip'
 ]
+
+export const entryFilePath = '@tarojs/rn-supporter/entry-file.js'
